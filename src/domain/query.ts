@@ -1,0 +1,66 @@
+import type { QueryOptions } from "./models.js";
+
+export type ResourceName =
+  | "course-search"
+  | "course-list"
+  | "course-detail"
+  | "program-tree"
+  | "program-detail"
+  | "program-module"
+  | "department-tree"
+  | "semesters"
+  | "lessons"
+  | "lesson-detail"
+  | "exams"
+  | "general-exams"
+  | "substitutes"
+  | "timetable"
+  | "restricted"
+  | "program-catalog"
+  | "program-document";
+
+export type LessonFilter = {
+  semesterId: number;
+  department?: string;
+  education?: string;
+  course?: string;
+  teacher?: string;
+  location?: string;
+  span?: string;
+  courseType?: string;
+  courseClassify?: string;
+};
+
+export type ClassroomFilter = {
+  date: string;
+  building?: string;
+  keyword?: string;
+  freePeriod?: number;
+  availableOnly?: boolean;
+};
+
+export type ExamFilter = {
+  semesterId: number;
+  type?: string;
+  education?: string;
+  department?: string;
+  grade?: string;
+  building?: string;
+  date?: string;
+  span?: import("./models.js").ExamRange;
+  className?: string;
+  course?: string;
+  teacher?: string;
+  location?: string;
+};
+
+export type SubstituteFilter = {
+  course?: string;
+  mode?: "interchangeable" | "straight";
+  multiple?: boolean;
+};
+
+export type QueryContext = {
+  options: QueryOptions;
+  cacheDir?: string;
+};

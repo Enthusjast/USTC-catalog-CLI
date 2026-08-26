@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.DS_Store
+.gstack/

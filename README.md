@@ -1,1 +1,251 @@
-# USTC-catalog-CLI
+# USTC Catalog CLI
+
+基于 TypeScript、Node.js 和 npm 的中国科学技术大学本科教务目录命令行客户端。
+
+它把 [catalog.ustc.edu.cn](https://catalog.ustc.edu.cn) 的公开只读查询转换为适合终端和脚本使用的命令。默认输出中文表格，也支持 JSON 和 CSV；默认请求最新数据，网络失败时自动回退到最近的本地 SQLite 缓存。
+
+## 快速开始
+
+### 环境要求
+
+- Node.js 20.18.1 或更新版本；
+- npm；
+- 支持 `better-sqlite3` 的本机编译或预构建环境。
+
+检查 Node.js 和 npm：
+
+```bash
+node --version
+npm --version
+```
+
+### 通过 npm 安装
+
+包发布后，执行：
+
+```bash
+npm install --global @enthusjast/ustc-catalog-cli
+```
+
+安装后，程序命令名是 `catalog`：
+
+```bash
+catalog --help
+catalog --version
+```
+
+版本命令输出产品名和版本号，例如：
+
+```text
+USTC-catalog-CLI 0.1.0
+```
+
+### 第一次查询
+
+```bash
+# 搜索课程
+catalog course search 数学
+
+# 查看当前默认学期的数学课程
+catalog lesson list --course 数学
+
+# 查看今天的空闲教室
+catalog classroom list --available
+```
+
+默认输出是终端表格。需要脚本处理时，使用 `--json` 或 `--csv`：
+
+```bash
+catalog --json course search 数学
+catalog --csv lesson list --course 数学 > lessons.csv
+```
+
+## 命令速览
+
+所有命令只查询公开数据，不执行登录、选课或数据修改操作。
+
+| 命令 | 用途 | 示例 |
+| --- | --- | --- |
+| `catalog semester list` | 查看学期及学期代码 | `catalog semester list` |
+| `catalog department list` | 查看院系树 | `catalog department list` |
+| `catalog calendar` | 查看教学日历占位信息 | `catalog calendar` |
+| `catalog course search <关键词>` | 搜索课程 | `catalog course search 数学` |
+| `catalog course list <分类>` | 查看课程分类目录 | `catalog course list quality` |
+| `catalog course show <课程编号...>` | 查看一个或多个课程详情 | `catalog course show MATH1001` |
+| `catalog program catalog [关键词]` | 搜索 2013 版静态培养方案目录 | `catalog program catalog 数学` |
+| `catalog program document <编号>` | 查看静态培养方案正文 | `catalog program document 001001` |
+| `catalog program history` | 查看历史培养方案链接 | `catalog program history` |
+| `catalog program list` | 查看培养方案列表 | `catalog program list --department 001` |
+| `catalog program show <计划ID>` | 查看培养方案及课程模块 | `catalog program show 3430` |
+| `catalog program module <模块ID>` | 查看培养方案模块 | `catalog program module 10001 --courses` |
+| `catalog lesson list` | 查询全校教学班 | `catalog lesson list --course 数学` |
+| `catalog lesson show <课堂号...>` | 查看教学班和课程详情 | `catalog lesson show MATH1001.01 --semester 461` |
+| `catalog classroom list` | 查看指定日期的教室使用情况 | `catalog classroom list --available` |
+| `catalog classroom show <教室>` | 查看单个教室 | `catalog classroom show 2303` |
+| `catalog classroom week` | 查看一周教室使用情况 | `catalog classroom week` |
+| `catalog exam list` | 查询考试 | `catalog exam list --course 微积分` |
+| `catalog exam show <考试ID>` | 查看单个考试 | `catalog exam show 13138 --semester 441` |
+| `catalog substitute list` | 查询替代课程关系 | `catalog substitute list --course 数学分析` |
+| `catalog substitute summary` | 查看网页提供的替代关系汇总表链接 | `catalog substitute summary` |
+| `catalog cache status` | 查看缓存数据库和快照统计 | `catalog cache status` |
+| `catalog cache clear` | 清理缓存 | `catalog cache clear --yes` |
+
+学期、计划、课堂号和考试 ID 应使用网站返回的实际值。可先执行 `catalog semester list`、`catalog department list` 或不带筛选条件的列表命令发现可用值。
+
+## 输出格式
+
+### 表格
+
+默认输出中文人类可读表格：
+
+```bash
+catalog course search 数学 --limit 5
+```
+
+表格末尾会显示数据来源和抓取时间；使用缓存回退时会在 stderr 输出警告，并显示缓存数据时间。
+
+### JSON
+
+JSON 输出统一为 `meta` 和 `data` 两个字段，适合脚本处理：
+
+```bash
+catalog --json lesson list --course 数学 \
+  | jq '.data[] | {课堂号: .code, 课程名: .courseName}'
+```
+
+`meta` 包含资源、查询范围、数据来源、抓取时间、数据时间和是否过期等信息。
+
+### CSV
+
+CSV 使用 UTF-8 BOM，适合 Excel 或其他表格软件：
+
+```bash
+catalog --csv lesson list --department 001 > lessons.csv
+```
+
+### 常用全局选项
+
+全局选项可以与各个子命令组合使用：
+
+| 选项 | 作用 |
+| --- | --- |
+| `--json` | 输出规范化 JSON |
+| `--csv` | 输出规范化 CSV；不能与 `--json` 同时使用 |
+| `--offline` | 只读取缓存，不发起网络请求 |
+| `--no-cache` | 忽略已有缓存并强制请求最新数据 |
+| `--cache-dir <path>` | 覆盖 SQLite 缓存目录 |
+| `--timeout <ms>` | 设置网络超时时间 |
+| `--limit <n>` | 限制输出记录数 |
+| `--offset <n>` | 跳过前 `n` 条列表记录 |
+| `--all` | 表格输出全部记录 |
+| `--no-color` | 关闭表格颜色 |
+| `--quiet` | 不输出来源、时间等提示 |
+| `--verbose` | 将请求和缓存诊断信息输出到 stderr |
+
+`--limit` 和 `--offset` 适用于列表结果；详情对象不支持 `--offset`。JSON 和 CSV 默认不受表格分页大小限制，表格输出较多记录时可使用 `--all`。
+
+## 缓存、最新数据和离线模式
+
+默认查询流程如下：
+
+1. 请求网站最新数据；
+2. 请求成功后写入本地 SQLite 快照；
+3. 网络请求失败时，如果存在对应快照，则回退到最近缓存并标记为过期；
+4. 没有缓存时返回错误。
+
+强制离线读取：
+
+```bash
+catalog --offline course search 数学
+```
+
+忽略已有缓存并强制联网：
+
+```bash
+catalog --no-cache course search 数学
+```
+
+`--offline` 和 `--no-cache` 不能同时使用。
+
+### 缓存位置
+
+默认数据库路径：
+
+```text
+Linux:   ~/.cache/catalog-cli/catalog.sqlite
+macOS:   ~/Library/Caches/catalog-cli/catalog.sqlite
+Windows: %LOCALAPPDATA%/catalog-cli/catalog.sqlite
+```
+
+也可以使用 `--cache-dir <path>` 指定临时或项目专用缓存目录。
+
+### 缓存管理
+
+```bash
+catalog cache status
+catalog cache clear --resource lessons --yes
+catalog cache clear --yes
+```
+
+交互终端清理缓存前会要求确认。非交互环境以及 JSON/CSV 输出必须显式提供 `--yes`。
+
+## 数据范围和权限边界
+
+- 只使用 `catalog.ustc.edu.cn` 当前公开页面使用的只读数据；
+- 课程、培养方案、学期、院系、教学班、教室、考试和替代课程查询均只读；
+- 不实现 CAS 登录、认证绕过、个人课表、成绩、选课或退课；
+- 不修改教务数据；
+- 培养方案正文解析为文本、表格和课程引用，不执行其中的 HTML 脚本；
+- API 原始 JSON 会经过适配器转换，表格、JSON 和 CSV 输出使用 CLI 的稳定字段；
+- 网站进入需要统一认证的限制模式时，CLI 会提示用户先在网页端完成认证，不代为登录。
+
+## 从源码运行和开发
+
+如果需要参与开发：
+
+```bash
+git clone https://github.com/Enthusjast/USTC-catalog-CLI.git
+cd USTC-catalog-CLI
+npm install
+npm run build
+node dist/main.js --version
+```
+
+将源码链接为 `catalog` 命令：
+
+```bash
+npm link
+catalog --version
+```
+
+运行完整检查：
+
+```bash
+npm run check
+```
+
+分步执行：
+
+```bash
+npm run typecheck
+npm run lint
+npm test
+npm run build
+```
+
+检查 npm 包内容：
+
+```bash
+npm pack --dry-run
+npm pack
+```
+
+当前 scoped 包生成的本地压缩包名称类似 `enthusjast-ustc-catalog-cli-0.1.0.tgz`。
+
+## 详细文档
+
+完整命令、参数、输出字段、缓存策略、错误和退出码见 [CLI 交互说明](./guide.md)。
+
+## 许可证
+
+[MIT License](./LICENSE)
