@@ -37,7 +37,7 @@ catalog --version
 版本命令输出产品名和版本号，例如：
 
 ```text
-USTC-catalog-CLI 0.1.0
+USTC-catalog-CLI 0.2.0
 ```
 
 ### 第一次查询
@@ -122,6 +122,57 @@ CSV 使用 UTF-8 BOM，适合 Excel 或其他表格软件：
 ```bash
 catalog --csv lesson list --department 001 > lessons.csv
 ```
+
+## MCP
+
+本包同时提供本地 stdio MCP 服务。MCP 客户端可以调用课程、培养方案、教学班、教室、考试、替代课程、学期和院系等只读查询；返回统一的 `meta/data` JSON，不返回终端表格，也不提供缓存清理、登录或选课操作。
+
+全局安装后，在 MCP 客户端配置：
+
+```json
+{
+  "mcpServers": {
+    "ustc-catalog": {
+      "command": "catalog-mcp"
+    }
+  }
+}
+```
+
+不安装全局命令时，可以使用 `npx`：
+
+```json
+{
+  "mcpServers": {
+    "ustc-catalog": {
+      "command": "npx",
+      "args": [
+        "--yes",
+        "--package",
+        "@enthusjast/ustc-catalog-cli@0.2.0",
+        "catalog-mcp"
+      ]
+    }
+  }
+}
+```
+
+缓存目录和网站地址通过环境变量配置，例如：
+
+```json
+{
+  "mcpServers": {
+    "ustc-catalog": {
+      "command": "catalog-mcp",
+      "env": {
+        "CATALOG_CACHE_DIR": "/path/to/catalog-cache"
+      }
+    }
+  }
+}
+```
+
+完整工具清单、参数和返回约定见 [CLI 与 MCP 交互说明](./guide.md)。
 
 ### 常用全局选项
 
@@ -240,7 +291,7 @@ npm pack --dry-run
 npm pack
 ```
 
-当前 scoped 包生成的本地压缩包名称类似 `enthusjast-ustc-catalog-cli-0.1.0.tgz`。
+当前 scoped 包生成的本地压缩包名称类似 `enthusjast-ustc-catalog-cli-0.2.0.tgz`。
 
 ## 详细文档
 

@@ -1,5 +1,6 @@
 import os from "node:os";
 import path from "node:path";
+import { CLI_VERSION } from "../../version.js";
 
 export const DEFAULT_BASE_URL = "https://catalog.ustc.edu.cn";
 
@@ -30,7 +31,7 @@ export const loadConfig = (overrides?: Partial<AppConfig>): AppConfig => ({
   userAgent:
     overrides?.userAgent ??
     process.env.CATALOG_USER_AGENT ??
-    "ustc-catalog-cli/0.1.0",
+    `ustc-catalog-cli/${CLI_VERSION}`,
 });
 
 export const databasePath = (config: AppConfig): string =>

@@ -1,6 +1,6 @@
 # USTC Catalog CLI 使用说明
 
-- 版本：0.1.0
+- 版本：0.2.0
 - 文档日期：2026-08-26
 - 命令名：catalog
 - 语言：中文
@@ -127,7 +127,7 @@ catalog cache clear
 执行 `catalog --version` 会输出产品名和版本号，例如：
 
 ```text
-USTC-catalog-CLI 0.1.0
+USTC-catalog-CLI 0.2.0
 ```
 
 ### 4.1 选项约束
@@ -1131,3 +1131,159 @@ catalog --json --verbose lesson list --semester 461 \
 - 教室房间容量和基础属性来自 CLI 内置静态表，日期使用记录来自网站课表；
 - CSV 面向表格使用，不保证保留 JSON 的全部嵌套结构；
 - `program show <id>` 使用 API 计划 ID，例如 3430；`program document <code>` 使用静态网页代码，例如 001001，两者不能混用。
+
+## 19. MCP 服务
+
+### 19.1 启动和配置
+
+从 0.2.0 开始，npm 包同时提供 `catalog-mcp` 命令。它使用本地 stdio 传输，适用于 Claude Desktop、Cursor、VS Code 等支持 MCP 的客户端：
+
+```bash
+npm install --global @enthusjast/ustc-catalog-cli@0.2.0
+catalog-mcp
+```
+
+MCP 客户端配置示例：
+
+```json
+{
+  "mcpServers": {
+    "ustc-catalog": {
+      "command": "catalog-mcp"
+    }
+  }
+}
+```
+
+也可以不安装全局命令，直接使用 npm：
+
+```json
+{
+  "mcpServers": {
+    "ustc-catalog": {
+      "command": "npx",
+      "args": [
+        "--yes",
+        "--package",
+        "@enthusjast/ustc-catalog-cli@0.2.0",
+        "catalog-mcp"
+      ]
+    }
+  }
+}
+```
+
+MCP 服务会为每次工具调用启动一个 `catalog --json` 子进程，使用参数数组执行，不经过 shell。最多同时运行 3 个子进程，超出的请求排队。
+
+### 19.2 环境变量
+
+MCP 服务会继承 CLI 的配置环境变量：
+
+| 环境变量 | 作用 | 默认值 |
+| --- | --- | --- |
+| `CATALOG_BASE_URL` | 覆盖 catalog 网站地址 | `https://catalog.ustc.edu.cn` |
+| `CATALOG_CACHE_DIR` | 指定 SQLite 缓存目录 | 系统用户缓存目录 |
+| `CATALOG_TIMEOUT_MS` | CLI 单次网络请求超时时间 | `15000` |
+| `CATALOG_USER_AGENT` | 覆盖 HTTP User-Agent | `ustc-catalog-cli/0.2.0` |
+| `CATALOG_MCP_PROCESS_TIMEOUT_MS` | MCP 子进程总超时时间 | `120000` |
+
+`CATALOG_CACHE_DIR` 应配置在 MCP 服务的 `env` 中，不作为模型可修改的工具参数。MCP 工具不暴露 `cache clear`。
+
+### 19.3 工具清单
+
+MCP 共提供 22 个只读工具：
+
+| 工具 | 对应 CLI 命令 | 用途 |
+| --- | --- | --- |
+| `ustc_semester_list` | `semester list` | 学期列表 |
+| `ustc_department_list` | `department list` | 院系树 |
+| `ustc_calendar` | `calendar` | 教学日历公开状态 |
+| `ustc_course_search` | `course search` | 课程搜索 |
+| `ustc_course_list` | `course list` | 课程分类目录 |
+| `ustc_course_show` | `course show` | 课程详情 |
+| `ustc_program_catalog` | `program catalog` | 静态培养方案目录 |
+| `ustc_program_document` | `program document` | 静态培养方案正文 |
+| `ustc_program_history` | `program history` | 历史培养方案链接 |
+| `ustc_program_list` | `program list` | API 培养方案列表 |
+| `ustc_program_show` | `program show` | 培养方案详情 |
+| `ustc_program_module` | `program module` | 培养方案模块 |
+| `ustc_lesson_list` | `lesson list` | 全校教学班 |
+| `ustc_lesson_show` | `lesson show` | 教学班详情 |
+| `ustc_classroom_list` | `classroom list` | 单日教室使用情况 |
+| `ustc_classroom_show` | `classroom show` | 单个教室 |
+| `ustc_classroom_week` | `classroom week` | 一周教室使用情况 |
+| `ustc_exam_list` | `exam list` | 考试列表 |
+| `ustc_exam_show` | `exam show` | 考试详情 |
+| `ustc_substitute_list` | `substitute list` | 替代课程关系 |
+| `ustc_substitute_summary` | `substitute summary` | 替代关系汇总表链接 |
+| `ustc_cache_status` | `cache status` | 缓存统计 |
+
+工具名使用 ASCII，工具描述和返回数据使用中文。除 `ustc_cache_status` 外，查询工具都支持以下公共参数：
+
+| 参数 | 类型 | 作用 |
+| --- | --- | --- |
+| `offline` | boolean | 只读取缓存；默认不提供时为 false |
+| `noCache` | boolean | 忽略已有缓存并强制请求；默认不提供时为 false |
+| `limit` | non-negative integer | 限制列表返回记录数 |
+| `offset` | non-negative integer | 跳过前 n 条列表记录 |
+
+`offline` 和 `noCache` 不能同时使用。MCP 固定使用 JSON，因此不提供 `json`、`csv`、`noColor`、`quiet`、`verbose` 和 `all` 参数；JSON/CSV 的 CLI 规则见第 6 节。
+
+### 19.4 工具参数
+
+除公共参数外，各工具使用以下业务参数：
+
+| 工具 | 业务参数 |
+| --- | --- |
+| `ustc_course_search` | `keyword: string`；`includeInvalid?: boolean` |
+| `ustc_course_list` | `category: string`；`department?: string` |
+| `ustc_course_show` | `codes: string[]`，至少一个课程编号 |
+| `ustc_program_catalog` | `keyword?: string` |
+| `ustc_program_document` | `code: string` |
+| `ustc_program_list` | `department?: string`、`major?: string`、`grade?: string`、`type?: string` |
+| `ustc_program_show` | `id: integer`；`term?: string` |
+| `ustc_program_module` | `id: integer`；`courses?: boolean` |
+| `ustc_lesson_list` | `semester?: string\|integer`、`department?: string`、`education?: string`、`course?: string`、`teacher?: string`、`location?: string`、`span?: string`、`courseType?: string`、`courseClassify?: string`、`sort?: code\|course\|department\|teacher\|location\|students`、`desc?: boolean` |
+| `ustc_lesson_show` | `codes: string[]`；`semester: string\|integer` |
+| `ustc_classroom_list` | `date?: YYYY-MM-DD`、`building?: string`、`keyword?: string`、`available?: boolean`、`freePeriod?: 0..13` |
+| `ustc_classroom_show` | `room: string`；`date?: YYYY-MM-DD` |
+| `ustc_classroom_week` | `date?: YYYY-MM-DD`；`building?: string` |
+| `ustc_exam_list` | `semester?: string\|integer`、`type?: string`、`education?: string`、`department?: string`、`grade?: string`、`building?: string`、`date?: YYYY-MM-DD`、`course?: string`、`teacher?: string`、`location?: string`、`className?: string`、`span?: morning\|afternoon\|evening`、`sort?: course\|department\|teacher\|location\|date\|time\|class`、`desc?: boolean` |
+| `ustc_exam_show` | `id: integer`；`semester: string\|integer` |
+| `ustc_substitute_list` | `course?: string`、`mode?: interchangeable\|straight`、`multiple?: boolean`、`single?: boolean` |
+
+`semester list`、`department list`、`calendar`、`program history`、`substitute summary` 和 `cache status` 不需要业务参数。`ustc_substitute_list` 的 `multiple` 与 `single` 互斥。
+
+### 19.5 返回结构
+
+成功时，MCP 工具同时返回 `structuredContent` 和文本形式的 JSON。两者内容相同：
+
+```json
+{
+  "meta": {
+    "resource": "lessons",
+    "scope": "461",
+    "source": "network",
+    "fetchedAt": "2026-08-26T00:00:00.000Z",
+    "dataAsOf": "2026年秋季学期",
+    "stale": false
+  },
+  "data": []
+}
+```
+
+MCP 保留 CLI 的规范化字段和缓存元数据。网络失败回退缓存时，`meta.source` 为 `cache`，`meta.stale` 为 `true`。
+
+工具失败时返回 `isError: true`，文本内容为：
+
+```json
+{
+  "error": {
+    "code": "CACHE_MISS",
+    "message": "没有找到缓存。",
+    "hint": "去掉 --offline 后联网获取，或先执行一次普通查询。"
+  }
+}
+```
+
+CLI 的 `ARGUMENT_ERROR`、`CACHE_MISS`、`NETWORK_ERROR`、远端错误和缓存错误会保留错误码和中文提示。子进程超时、异常退出或返回非 `meta/data` JSON 时，MCP 返回对应的 MCP 执行错误，不返回堆栈或半截结果。

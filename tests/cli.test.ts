@@ -26,7 +26,7 @@ describe("CLI contract", () => {
   it("shows the product name together with the version", () => {
     const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "catalog-cli-version-"));
     const { program, services } = buildCli({ cacheDir });
-    expect(program.version()).toBe("USTC-catalog-CLI 0.1.0");
+    expect(program.version()).toBe("USTC-catalog-CLI 0.2.0");
     services.repository.close();
   });
 });

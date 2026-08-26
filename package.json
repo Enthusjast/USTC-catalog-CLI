@@ -1,6 +1,6 @@
 {
   "name": "@enthusjast/ustc-catalog-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "中国科学技术大学本科教务目录命令行客户端，支持课程、培养方案、教学班、教室、考试和替代课程查询",
   "license": "MIT",
   "repository": {
@@ -21,7 +21,8 @@
   ],
   "type": "module",
   "bin": {
-    "catalog": "dist/main.js"
+    "catalog": "dist/main.js",
+    "catalog-mcp": "dist/mcp.js"
   },
   "files": [
     "dist",
@@ -32,7 +33,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "prepack": "npm run build && chmod +x dist/main.js",
+    "prepack": "npm run build && chmod +x dist/main.js dist/mcp.js",
     "check": "npm run typecheck && npm run lint && npm test && npm run build",
     "dev": "tsx src/main.ts",
     "test": "vitest run",
@@ -44,6 +45,7 @@
     "node": ">=20.18.1"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "better-sqlite3": "^11.10.0",
     "chalk": "^5.4.1",
     "cheerio": "^1.0.0",
