@@ -7,6 +7,7 @@ import { CliError } from "./domain/errors.js";
 import type { ProgramModule, QueryOptions } from "./domain/models.js";
 import { emitMessage, emitResult } from "./presentation/output.js";
 import { CLI_VERSION_TEXT } from "./version.js";
+import { CACHE_RESOURCE_NAMES } from "./domain/query.js";
 import {
   classroomRows,
   courseDetailRows,
@@ -113,6 +114,14 @@ const buildingFilter = (value?: string): string | undefined => {
   return buildings.join(",");
 };
 
+const cacheResource = (value?: string): string | undefined => {
+  if (value === undefined) return undefined;
+  if (!(CACHE_RESOURCE_NAMES as readonly string[]).includes(value)) {
+    throw new CliError("ARGUMENT_ERROR", `未知缓存资源：${value}。`, `可选资源：${CACHE_RESOURCE_NAMES.join("、")}`);
+  }
+  return value;
+};
+
 const flattenDepartments = (nodes: Array<{ code: string; nameZh: string; id?: number; children: typeof nodes }>): Array<Record<string, unknown>> =>
   nodes.flatMap((node) => [
     { 院系代码: node.code, 院系名称: node.nameZh, 内部ID: node.id ?? "" },
@@ -157,7 +166,7 @@ const emitStaticMessage = (resource: string, label: string, value: string, optio
       meta: {
         resource,
         scope: "static",
-        source: "network",
+        source: "static",
         fetchedAt: new Date().toISOString(),
         dataAsOf: "网页静态内容",
         stale: false,
@@ -565,7 +574,7 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
     .option("--yes", "确认删除，不进行交互确认")
     .action(async (_opts: unknown, command: Command) => {
       const options = cliOptions(command);
-      const resource = command.opts().resource as string | undefined;
+      const resource = cacheResource(command.opts().resource as string | undefined);
       await confirmCacheClear(options, Boolean(command.opts().yes), resource);
       const removed = services.repository.clear(resource);
       if (options.format === "table") {

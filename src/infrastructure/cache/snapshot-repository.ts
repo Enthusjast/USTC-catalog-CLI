@@ -53,6 +53,14 @@ export class SnapshotRepository {
       const payload = row.payloadEncoding === "gzip"
         ? zlib.gunzipSync(row.payloadJson)
         : row.payloadJson;
+      const actualHash = hash(payload);
+      if (actualHash !== row.payloadHash) {
+        throw new CliError(
+          "CACHE_ERROR",
+          `缓存快照 ${resource}/${scopeKey} 的完整性校验失败。`,
+          "删除该资源缓存后重新联网获取。",
+        );
+      }
       return {
         value: JSON.parse(payload.toString("utf8")) as T,
         fetchedAt: row.fetchedAt,

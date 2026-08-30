@@ -12,6 +12,7 @@ import {
   sortExams,
 } from "../src/adapters/adapters.js";
 import { COURSE_CATALOG_BY_CODE } from "../src/data/course-catalog.js";
+import { STATIC_ROOMS } from "../src/data/rooms.js";
 
 describe("web behavior adapters", () => {
   it("normalizes lesson fields and filters by course", () => {
@@ -121,6 +122,10 @@ describe("web behavior adapters", () => {
   it("uses the website's visible course category mapping", () => {
     expect(COURSE_CATALOG_BY_CODE.get("001")?.sourceIds).toEqual(["2", "5", "6", "61"]);
     expect(COURSE_CATALOG_BY_CODE.get("cs+es+in")?.sourceIds).toEqual(["49", "41", "47", "102"]);
+  });
+
+  it("keeps the static room inventory aligned with visible classroom buildings", () => {
+    expect(STATIC_ROOMS.some((room) => room.buildingCode === "17")).toBe(false);
   });
 
   it("merges timetable usage records and keeps course ids searchable", () => {

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { DataAccessPolicy } from "../src/application/data-access-policy.js";
 import { loadConfig } from "../src/infrastructure/config/paths.js";
 import { SnapshotRepository } from "../src/infrastructure/cache/snapshot-repository.js";
+import { CliError } from "../src/domain/errors.js";
 
 const resources: SnapshotRepository[] = [];
 
@@ -33,7 +34,7 @@ describe("DataAccessPolicy", () => {
       "test",
       "one",
       async () => {
-        throw new Error("offline");
+        throw new CliError("NETWORK_ERROR", "offline");
       },
       { offline: false, noCache: false },
     );
@@ -69,5 +70,59 @@ describe("DataAccessPolicy", () => {
     } catch (error) {
       expect(error).toMatchObject({ code: "CACHE_ERROR" });
     }
+  });
+
+  it("does not hide remote contract errors behind stale cache", async () => {
+    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "catalog-cli-test-"));
+    const repository = new SnapshotRepository(loadConfig({ cacheDir }));
+    resources.push(repository);
+    const policy = new DataAccessPolicy(repository);
+    await policy.load("test", "remote-error", async () => ({ value: 1 }), {
+      offline: false,
+      noCache: false,
+    });
+
+    await expect(
+      policy.load("test", "remote-error", async () => {
+        throw new CliError("REMOTE_INVALID_DATA", "接口结构已变化。");
+      }, { offline: false, noCache: false }),
+    ).rejects.toMatchObject({ code: "REMOTE_INVALID_DATA" });
+  });
+
+  it("rejects a valid but tampered snapshot by its payload hash", () => {
+    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "catalog-cli-test-"));
+    const repository = new SnapshotRepository(loadConfig({ cacheDir }));
+    resources.push(repository);
+    repository.write("test", "tampered", "test:tampered", { id: 1 });
+    repository.database.db
+      .prepare("UPDATE snapshots SET payload_json = ?, payload_encoding = 'identity' WHERE resource = ? AND scope_key = ?")
+      .run(Buffer.from(JSON.stringify({ id: 2 })), "test", "tampered");
+
+    try {
+      repository.read("test", "tampered");
+      throw new Error("expected a cache integrity error");
+    } catch (error) {
+      expect(error).toMatchObject({ code: "CACHE_ERROR" });
+    }
+  });
+
+  it("ignores a corrupted snapshot when an online refresh succeeds", async () => {
+    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "catalog-cli-test-"));
+    const repository = new SnapshotRepository(loadConfig({ cacheDir }));
+    resources.push(repository);
+    repository.write("test", "refresh", "test:refresh", { id: 1 });
+    repository.database.db
+      .prepare("UPDATE snapshots SET payload_json = ?, payload_encoding = 'identity' WHERE resource = ? AND scope_key = ?")
+      .run(Buffer.from(JSON.stringify({ id: 2 })), "test", "refresh");
+
+    const policy = new DataAccessPolicy(repository);
+    const result = await policy.load("test", "refresh", async () => ({
+      value: { id: 3 },
+      fetchedAt: "2026-08-30T00:00:00.000Z",
+    }), { offline: false, noCache: false });
+
+    expect(result.value).toEqual({ id: 3 });
+    expect(result.meta.source).toBe("network");
+    expect(repository.read("test", "refresh")?.value).toEqual({ id: 3 });
   });
 });

@@ -33,4 +33,50 @@ describe("output contracts", () => {
       expect(error).toMatchObject({ code: "ARGUMENT_ERROR" });
     }
   });
+
+  it("does not truncate object-shaped details with --limit", () => {
+    const write = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    emitResult(
+      {
+        meta: { resource: "test", scope: "detail", source: "network", fetchedAt: "now", stale: false },
+        data: { id: 1 },
+      },
+      { format: "json", limit: 0, offset: 0, all: false, noColor: true, quiet: true },
+    );
+    const output = String(write.mock.calls[0]?.[0] ?? "");
+    expect(JSON.parse(output).data).toEqual({ id: 1 });
+    write.mockRestore();
+  });
+
+  it("labels static results as static in human-readable output", () => {
+    const write = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    emitResult(
+      {
+        meta: { resource: "program-catalog", scope: "all", source: "static", fetchedAt: "now", stale: false },
+        data: { label: "目录", value: "内置" },
+      },
+      { format: "table", limit: undefined, offset: 0, all: true, noColor: true, quiet: false },
+      25,
+      { tableRows: [{ 名称: "目录", 内容: "内置" }] },
+    );
+    expect(write.mock.calls.flat().join("")).toContain("数据来源：静态");
+    write.mockRestore();
+  });
+
+  it("distinguishes explicit offline cache use from network fallback", () => {
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    emitResult(
+      {
+        meta: { resource: "test", scope: "offline", source: "cache", fetchedAt: "now", stale: true },
+        data: [{ id: 1 }],
+      },
+      { format: "table", offline: true, limit: undefined, offset: 0, all: true, noColor: true, quiet: false },
+      25,
+    );
+    expect(stderr.mock.calls.flat().join("")).toContain("使用离线缓存数据");
+    expect(stderr.mock.calls.flat().join("")).not.toContain("网络请求失败");
+    stdout.mockRestore();
+    stderr.mockRestore();
+  });
 });

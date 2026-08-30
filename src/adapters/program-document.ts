@@ -2,6 +2,7 @@ import { load } from "cheerio";
 import type {
   ProgramDocument,
   ProgramDocumentBlock,
+  ProgramDocumentLink,
   ProgramDocumentSection,
   ProgramDocumentTable,
 } from "../domain/models.js";
@@ -11,6 +12,19 @@ const cleanText = (value: string): string =>
     .replace(/\u00a0/g, " ")
     .replace(/[ \t\r\n]+/g, " ")
     .trim();
+
+type CheerioInput = Parameters<ReturnType<typeof load>>[0];
+
+const linksFrom = ($: ReturnType<typeof load>, node: CheerioInput): ProgramDocumentLink[] =>
+  $(node)
+    .find("a")
+    .addBack("a")
+    .toArray()
+    .map((link) => ({
+      text: cleanText($(link).text()),
+      href: cleanText($(link).attr("href") ?? ""),
+    }))
+    .filter((link) => link.href.length > 0);
 
 const tableFrom = ($: ReturnType<typeof load>, table: Parameters<ReturnType<typeof load>>[0]): ProgramDocumentTable => {
   const rows = $(table)
@@ -33,7 +47,7 @@ const tableFrom = ($: ReturnType<typeof load>, table: Parameters<ReturnType<type
   };
 };
 
-const blocksFrom = ($: ReturnType<typeof load>, elements: Parameters<ReturnType<typeof load>>[0][]): ProgramDocumentBlock[] => {
+const blocksFrom = ($: ReturnType<typeof load>, elements: CheerioInput[]): ProgramDocumentBlock[] => {
   const blocks: ProgramDocumentBlock[] = [];
   const seenCourseCodes = new Set<string>();
   for (const element of elements) {
@@ -49,12 +63,53 @@ const blocksFrom = ($: ReturnType<typeof load>, elements: Parameters<ReturnType<
       }
     });
     if (node.is("table")) continue;
+    if (node.is("img")) {
+      const src = cleanText(node.attr("src") ?? "");
+      if (src) blocks.push({ type: "image", src, alt: cleanText(node.attr("alt") ?? "") || undefined });
+      continue;
+    }
     if (node.is("p,li,blockquote")) {
       const text = cleanText(node.text());
-      if (text) blocks.push({ type: "paragraph", text });
+      const links = linksFrom($, element);
+      if (text) blocks.push({ type: "paragraph", text, ...(links.length > 0 ? { links } : {}) });
     }
   }
   return blocks;
+};
+
+type DocumentItem =
+  | { type: "heading"; level: number; text: string }
+  | { type: "element"; element: CheerioInput };
+
+const collectItems = ($: ReturnType<typeof load>, root: CheerioInput): DocumentItem[] => {
+  const items: DocumentItem[] = [];
+  const walk = (container: CheerioInput): void => {
+    $(container).contents().each((_, child) => {
+      const node = $(child);
+      if (node.is("h1,h2,h3,h4,h5,h6")) {
+        const candidate = node.get(0);
+        const tag = candidate && "name" in candidate && typeof candidate.name === "string"
+          ? candidate.name
+          : undefined;
+        const level = tag ? Number(tag.slice(1)) : 0;
+        if (level > 0) items.push({ type: "heading", level, text: cleanText(node.text()) });
+        return;
+      }
+      if (node.is("table,p,li,blockquote,img")) {
+        items.push({ type: "element", element: child });
+        return;
+      }
+      if (node.is("article,section,div,main,body,ul,ol,figure")) walk(child);
+    });
+  };
+  walk(root);
+  return items;
+};
+
+const appendCourseCodes = (blocks: ProgramDocumentBlock[], target: string[]): void => {
+  for (const block of blocks) {
+    if (block.type === "course" && !target.includes(block.code)) target.push(block.code);
+  }
 };
 
 export const normalizeProgramDocument = (
@@ -65,38 +120,43 @@ export const normalizeProgramDocument = (
 ): ProgramDocument => {
   const $ = load(html);
   $("script,style,noscript").remove();
-  const headings = $("h2").toArray();
+  const items = collectItems($, $("body").get(0) ?? $.root().get(0));
   const sections: ProgramDocumentSection[] = [];
   const allCourseCodes: string[] = [];
 
-  headings.forEach((heading, index) => {
-    const elements: Parameters<ReturnType<typeof load>>[0][] = [];
-    let next = $(heading).next();
-    while (next.length > 0 && !next.is("h2")) {
-      elements.push(next.get(0));
-      next = next.next();
-    }
-    const blocks = blocksFrom($, elements);
-    for (const block of blocks) {
-      if (block.type === "course" && !allCourseCodes.includes(block.code)) {
-        allCourseCodes.push(block.code);
-      }
-    }
+  let pendingElements: CheerioInput[] = [];
+  let current: { title: string; level: number; elements: CheerioInput[] } | undefined;
+  const flush = (): void => {
+    if (!current) return;
+    const blocks = blocksFrom($, current.elements);
+    appendCourseCodes(blocks, allCourseCodes);
     sections.push({
-      id: `h${index}`,
-      title: cleanText($(heading).text()),
+      id: `h${sections.length}`,
+      title: current.title,
+      level: current.level,
       blocks,
     });
-  });
+    current = undefined;
+  };
+
+  for (const item of items) {
+    if (item.type === "heading") {
+      if (item.level === 1) continue;
+      flush();
+      current = { title: item.text, level: item.level, elements: pendingElements };
+      pendingElements = [];
+    } else if (current) {
+      current.elements.push(item.element);
+    } else {
+      pendingElements.push(item.element);
+    }
+  }
+  flush();
 
   if (sections.length === 0) {
-    const blocks = blocksFrom($, $("body").children().toArray());
-    for (const block of blocks) {
-      if (block.type === "course" && !allCourseCodes.includes(block.code)) {
-        allCourseCodes.push(block.code);
-      }
-    }
-    sections.push({ id: "body", title, blocks });
+    const blocks = blocksFrom($, pendingElements);
+    appendCourseCodes(blocks, allCourseCodes);
+    sections.push({ id: "body", title, level: 1, blocks });
   }
 
   return { code, title, sourcePath, sections, courseCodes: allCourseCodes };

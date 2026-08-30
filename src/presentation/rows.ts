@@ -60,12 +60,18 @@ export const programDocumentRows = (document: ProgramDocument): DisplayRow[] =>
   document.sections.flatMap((section) => section.blocks.map((block) => ({
     章节: section.id,
     标题: section.title,
-    类型: block.type === "paragraph" ? "正文" : block.type === "table" ? "表格" : "课程",
+    层级: section.level,
+    类型: block.type === "paragraph" ? "正文" : block.type === "table" ? "表格" : block.type === "image" ? "图片" : "课程",
     内容: block.type === "paragraph"
       ? block.text
       : block.type === "course"
         ? `${block.code} ${block.text}`
-        : block.table.rows.map((row) => row.join(" | ")).join("；"),
+        : block.type === "image"
+          ? block.alt ?? block.src
+          : block.table.rows.map((row) => row.join(" | ")).join("；"),
+    ...(block.type === "paragraph" && block.links?.length
+      ? { 链接: block.links.map((link) => `${link.text} → ${link.href}`).join("；") }
+      : {}),
   })));
 
 export const lessonRows = (items: Lesson[]): DisplayRow[] =>

@@ -37,7 +37,7 @@ catalog --version
 版本命令输出产品名和版本号，例如：
 
 ```text
-USTC-catalog-CLI 0.2.0
+USTC-catalog-CLI 0.2.1
 ```
 
 ### 第一次查询
@@ -102,7 +102,7 @@ catalog --csv lesson list --course 数学 > lessons.csv
 catalog course search 数学 --limit 5
 ```
 
-表格末尾会显示数据来源和抓取时间；使用缓存回退时会在 stderr 输出警告，并显示缓存数据时间。
+表格末尾会显示数据来源和抓取时间；网络失败回退缓存时会在 stderr 输出警告，`--offline` 使用缓存时会输出提示，并显示缓存数据时间。
 
 ### JSON
 
@@ -113,7 +113,7 @@ catalog --json lesson list --course 数学 \
   | jq '.data[] | {课堂号: .code, 课程名: .courseName}'
 ```
 
-`meta` 包含资源、查询范围、数据来源、抓取时间、数据时间和是否过期等信息。
+`meta` 包含资源、查询范围、数据来源、抓取时间、数据时间和是否过期等信息。`source` 可能是 `network`、`cache`、`static` 或 `mixed`；内置培养方案目录和网页占位信息使用 `static`。
 
 ### CSV
 
@@ -149,7 +149,7 @@ catalog --csv lesson list --department 001 > lessons.csv
       "args": [
         "--yes",
         "--package",
-        "@enthusjast/ustc-catalog-cli@0.2.0",
+        "@enthusjast/ustc-catalog-cli@0.2.1",
         "catalog-mcp"
       ]
     }
@@ -282,6 +282,9 @@ npm run typecheck
 npm run lint
 npm test
 npm run build
+npm run test:coverage
+npm run mcp:smoke
+npm run package:smoke
 ```
 
 检查 npm 包内容：
@@ -291,7 +294,9 @@ npm pack --dry-run
 npm pack
 ```
 
-当前 scoped 包生成的本地压缩包名称类似 `enthusjast-ustc-catalog-cli-0.2.0.tgz`。
+推送形如 `v0.2.1` 的 Git tag 会触发 GitHub Actions 发布流程。发布前需要在 npm 包设置中为该 GitHub 仓库配置 Trusted Publishing（OIDC）；日常开发不需要 npm token 写入仓库。
+
+当前 scoped 包生成的本地压缩包名称类似 `enthusjast-ustc-catalog-cli-0.2.1.tgz`。
 
 ## 详细文档
 

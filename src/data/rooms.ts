@@ -1,3 +1,4 @@
+/** Room inventory shown by the public classroom query; visible buildings verified on 2026-08-30. */
 export type StaticRoom = {
   id: number;
   nameZh: string;
@@ -2189,16 +2190,6 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "seats": 242,
     "buildingCode": "22",
     "roomTypeCode": "2"
-  },
-  {
-    "id": 362,
-    "nameZh": "未来中心1号报告厅",
-    "nameEn": "wlzx1",
-    "code": "未来中心1号报告厅",
-    "floor": 1,
-    "seats": 450,
-    "buildingCode": "17",
-    "roomTypeCode": "10"
   },
   {
     "id": 582,

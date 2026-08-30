@@ -14,4 +14,28 @@ describe("static program document adapter", () => {
     expect(document.sections[0].blocks.some((block) => block.type === "table")).toBe(true);
     expect(document.sections[0].blocks.some((block) => block.type === "course")).toBe(true);
   });
+
+  it("keeps heading levels, links and images from the static document", () => {
+    const document = normalizeProgramDocument(
+      `<article><figure><img src="001_title.jpg" alt="标题图"></figure><h1>数学与应用数学专业培养方案</h1><section><h2>课程要求</h2><h3>通修课程</h3><p><a href="https://example.com/course">课程说明</a></p></section></article>`,
+      "001001",
+      "数学与应用数学专业",
+      "/data/program/cn/001001.html",
+    );
+
+    expect(document.sections.map((section) => [section.level, section.title])).toEqual([
+      [2, "课程要求"],
+      [3, "通修课程"],
+    ]);
+    expect(document.sections[0].blocks).toContainEqual({
+      type: "image",
+      src: "001_title.jpg",
+      alt: "标题图",
+    });
+    expect(document.sections[1].blocks).toContainEqual({
+      type: "paragraph",
+      text: "课程说明",
+      links: [{ text: "课程说明", href: "https://example.com/course" }],
+    });
+  });
 });

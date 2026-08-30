@@ -1,4 +1,4 @@
-export type SourceKind = "network" | "cache" | "mixed";
+export type SourceKind = "network" | "cache" | "static" | "mixed";
 
 export type ResultMeta = {
   resource: string;
@@ -120,14 +120,21 @@ export type ProgramDocumentTable = {
   rows: string[][];
 };
 
+export type ProgramDocumentLink = {
+  text: string;
+  href: string;
+};
+
 export type ProgramDocumentBlock =
-  | { type: "paragraph"; text: string }
+  | { type: "paragraph"; text: string; links?: ProgramDocumentLink[] }
   | { type: "table"; table: ProgramDocumentTable }
+  | { type: "image"; src: string; alt?: string }
   | { type: "course"; code: string; text: string };
 
 export type ProgramDocumentSection = {
   id: string;
   title: string;
+  level: number;
   blocks: ProgramDocumentBlock[];
 };
 

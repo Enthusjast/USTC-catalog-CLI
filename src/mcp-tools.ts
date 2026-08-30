@@ -42,7 +42,7 @@ const outputSchema = {
   meta: z.object({
     resource: z.string(),
     scope: z.string(),
-    source: z.enum(["network", "cache", "mixed"]),
+    source: z.enum(["network", "cache", "static", "mixed"]),
     fetchedAt: z.string(),
     dataAsOf: z.string().nullable().optional(),
     stale: z.boolean(),

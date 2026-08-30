@@ -6,6 +6,7 @@ import { CliError } from "../domain/errors.js";
 
 export type OutputOptions = {
   format: "table" | "json" | "csv";
+  offline?: boolean;
   limit?: number;
   offset: number;
   all: boolean;
@@ -65,7 +66,7 @@ const jsonSafe = (value: unknown): unknown => {
 };
 
 const sourceName = (source: string): string =>
-  source === "cache" ? "缓存" : source === "mixed" ? "混合" : "网络";
+  source === "cache" ? "缓存" : source === "static" ? "静态" : source === "mixed" ? "混合" : "网络";
 
 const printMeta = (meta: ResultEnvelope<unknown>["meta"], options: OutputOptions): void => {
   if (options.quiet) return;
@@ -85,10 +86,12 @@ export const emitResult = <T>(
     throw new CliError("ARGUMENT_ERROR", "详情对象不支持 --offset；请只对列表结果使用分页参数。");
   }
   const data = isArray ? value : [value];
-  const selected = sliceRows(data, options, pageSize);
+  const selected = isArray ? sliceRows(data, options, pageSize) : data;
   if (envelope.meta.stale && !options.quiet) {
     const dataAsOf = envelope.meta.dataAsOf ? `，数据时间：${envelope.meta.dataAsOf}` : "";
-    const warning = `警告：网络请求失败，使用缓存数据。抓取时间：${envelope.meta.fetchedAt}${dataAsOf}`;
+    const warning = options.offline
+      ? `提示：使用离线缓存数据。抓取时间：${envelope.meta.fetchedAt}${dataAsOf}`
+      : `警告：网络请求失败，使用缓存数据。抓取时间：${envelope.meta.fetchedAt}${dataAsOf}`;
     process.stderr.write(`${options.noColor ? warning : chalk.yellow(warning)}\n`);
   }
 
@@ -99,7 +102,7 @@ export const emitResult = <T>(
   }
 
   const rows = payload.tableRows
-    ? sliceRows(payload.tableRows, options, pageSize)
+    ? isArray ? sliceRows(payload.tableRows, options, pageSize) : payload.tableRows
     : normalizeRows(selected);
   if (options.format === "csv") {
     const columns = columnsFor(rows);

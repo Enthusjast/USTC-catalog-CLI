@@ -1,6 +1,6 @@
 import type { ProgramCatalogEntry } from "../domain/models.js";
 
-/** Static 2013 program directory currently embedded by catalog.ustc.edu.cn. */
+/** Static 2013 program directory currently embedded by catalog.ustc.edu.cn. Last verified on 2026-08-30. */
 const staticProgramRows: Array<[string, string, ProgramCatalogEntry["type"], string[]]> = [
   ["000", "少年班学院", "school", []],
   ["001", "数学科学学院", "school", []],

@@ -1,6 +1,6 @@
 # USTC Catalog CLI 使用说明
 
-- 版本：0.2.0
+- 版本：0.2.1
 - 文档日期：2026-08-26
 - 命令名：catalog
 - 语言：中文
@@ -127,7 +127,7 @@ catalog cache clear
 执行 `catalog --version` 会输出产品名和版本号，例如：
 
 ```text
-USTC-catalog-CLI 0.2.0
+USTC-catalog-CLI 0.2.1
 ```
 
 ### 4.1 选项约束
@@ -203,6 +203,8 @@ catalog course list 001 --limit 10
 网络失败 → 读取最近缓存 → 输出缓存数据 → 标记 stale=true
 ```
 
+只有网络传输错误会触发上述回退。HTTP 404、其他 HTTP 错误、无效 JSON 或接口数据结构变化会直接报错，避免把不再适用的旧快照误显示为可用数据。
+
 如果网络和缓存都失败，命令失败并返回错误码。
 
 ### 5.2 `--offline`
@@ -221,7 +223,7 @@ catalog --offline lesson list --semester 461
 提示：去掉 --offline 后联网获取，或先执行一次普通查询。
 ```
 
-静态内置目录 program catalog 不需要网络；静态培养方案正文只有在此前成功请求并缓存后才能离线读取。
+静态内置目录 program catalog 不需要网络，JSON 的 `meta.source` 为 `static`；静态培养方案正文只有在此前成功请求并缓存后才能离线读取。
 
 ### 5.3 `--no-cache`
 
@@ -273,12 +275,12 @@ JSON 的 meta 结构：
 | --- | --- |
 | `resource` | 内部资源名，例如 lessons、exams、timetable |
 | `scope` | 请求作用域，例如学期 ID、日期或课程编号 |
-| `source` | network、cache 或 mixed |
+| `source` | network、cache、static 或 mixed |
 | `fetchedAt` | 快照抓取时间，使用 ISO 8601 |
 | `dataAsOf` | 数据实际所属学期、日期或静态内容说明 |
-| `stale` | 是否使用了网络失败后的缓存数据 |
+| `stale` | 是否不是当前在线响应；包括离线读取和网络失败后的缓存数据 |
 
-默认表格会在表格后显示来源和抓取时间。缓存回退时还会把警告写入 stderr：
+默认表格会在表格后显示来源和抓取时间。网络失败回退时会把警告写入 stderr；`--offline` 读取缓存时会写入离线提示：
 
 ```text
 警告：网络请求失败，使用缓存数据。抓取时间：2026-08-25T20:26:13.490Z
@@ -588,9 +590,10 @@ catalog --csv program document 001001 > program.csv
 
 CLI 不执行正文中的脚本，只解析为：
 
-- h2 章节；
+- h2 至 h6 章节，并保留章节层级；
 - 正文段落；
 - 表格；
+- 图片和正文中的链接；
 - data-cid 课程引用。
 
 JSON 结构示例：
@@ -604,6 +607,7 @@ JSON 结构示例：
     {
       "id": "h0",
       "title": "专业培养目标",
+      "level": 2,
       "blocks": [
         { "type": "paragraph", "text": "……" },
         {
@@ -1040,6 +1044,8 @@ catalog cache clear --resource lessons --yes
 catalog cache clear --resource timetable --yes
 ```
 
+`--resource` 必须是 CLI 已知的快照资源，例如 `lessons`、`exams`、`timetable`、`semesters` 或 `program-document`；拼写错误会返回参数错误，不会静默显示“删除 0 条”。
+
 该命令删除快照行，不删除数据库目录本身，也不删除用户其他文件。
 
 ## 16. 错误和退出码
@@ -1139,7 +1145,7 @@ catalog --json --verbose lesson list --semester 461 \
 从 0.2.0 开始，npm 包同时提供 `catalog-mcp` 命令。它使用本地 stdio 传输，适用于 Claude Desktop、Cursor、VS Code 等支持 MCP 的客户端：
 
 ```bash
-npm install --global @enthusjast/ustc-catalog-cli@0.2.0
+npm install --global @enthusjast/ustc-catalog-cli@0.2.1
 catalog-mcp
 ```
 
@@ -1165,7 +1171,7 @@ MCP 客户端配置示例：
       "args": [
         "--yes",
         "--package",
-        "@enthusjast/ustc-catalog-cli@0.2.0",
+        "@enthusjast/ustc-catalog-cli@0.2.1",
         "catalog-mcp"
       ]
     }
@@ -1184,7 +1190,7 @@ MCP 服务会继承 CLI 的配置环境变量：
 | `CATALOG_BASE_URL` | 覆盖 catalog 网站地址 | `https://catalog.ustc.edu.cn` |
 | `CATALOG_CACHE_DIR` | 指定 SQLite 缓存目录 | 系统用户缓存目录 |
 | `CATALOG_TIMEOUT_MS` | CLI 单次网络请求超时时间 | `15000` |
-| `CATALOG_USER_AGENT` | 覆盖 HTTP User-Agent | `ustc-catalog-cli/0.2.0` |
+| `CATALOG_USER_AGENT` | 覆盖 HTTP User-Agent | `ustc-catalog-cli/0.2.1` |
 | `CATALOG_MCP_PROCESS_TIMEOUT_MS` | MCP 子进程总超时时间 | `120000` |
 
 `CATALOG_CACHE_DIR` 应配置在 MCP 服务的 `env` 中，不作为模型可修改的工具参数。MCP 工具不暴露 `cache clear`。

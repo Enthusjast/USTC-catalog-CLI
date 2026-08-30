@@ -22,6 +22,9 @@ export type NetworkValue<T> = {
   status?: number;
 };
 
+const canFallbackToCache = (error: unknown): boolean =>
+  error instanceof CliError && error.code === "NETWORK_ERROR";
+
 export class DataAccessPolicy {
   constructor(private readonly repository: SnapshotRepository) {}
 
@@ -32,7 +35,15 @@ export class DataAccessPolicy {
     options: AccessOptions,
     dataAsOf?: (value: T) => string | null | undefined,
   ): Promise<Loaded<T>> {
-    const cached = options.noCache ? null : this.repository.read<T>(resource, scope);
+    let cached: CachedValue<T> | null = null;
+    if (!options.noCache) {
+      try {
+        cached = this.repository.read<T>(resource, scope);
+      } catch (error) {
+        if (options.offline) throw error;
+        options.onDiagnostic?.(`cache read failed, ignore snapshot: ${resource}/${scope}`);
+      }
+    }
 
     if (options.offline) {
       if (!cached) {
@@ -51,7 +62,7 @@ export class DataAccessPolicy {
       options.onDiagnostic?.(`network request: ${resource}/${scope}`);
       network = await loader();
     } catch (error) {
-      if (!cached) throw error;
+      if (!cached || !canFallbackToCache(error)) throw error;
       options.onDiagnostic?.(`network failed, fallback cache: ${resource}/${scope}`);
       return {
         value: cached.value,

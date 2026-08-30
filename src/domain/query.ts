@@ -1,23 +1,30 @@
 import type { QueryOptions } from "./models.js";
 
-export type ResourceName =
-  | "course-search"
-  | "course-list"
-  | "course-detail"
-  | "program-tree"
-  | "program-detail"
-  | "program-module"
-  | "department-tree"
-  | "semesters"
-  | "lessons"
-  | "lesson-detail"
-  | "exams"
-  | "general-exams"
-  | "substitutes"
-  | "timetable"
-  | "restricted"
-  | "program-catalog"
-  | "program-document";
+export const RESOURCE_NAMES = [
+  "course-search",
+  "course-list",
+  "course-detail",
+  "program-tree",
+  "program-detail",
+  "program-module",
+  "department-tree",
+  "semesters",
+  "lessons",
+  "lesson-detail",
+  "exams",
+  "general-exams",
+  "substitutes",
+  "timetable",
+  "restricted",
+  "program-catalog",
+  "program-document",
+] as const;
+
+export type ResourceName = typeof RESOURCE_NAMES[number];
+
+export const CACHE_RESOURCE_NAMES = RESOURCE_NAMES.filter(
+  (resource): resource is Exclude<ResourceName, "program-catalog"> => resource !== "program-catalog",
+);
 
 export type LessonFilter = {
   semesterId: number;

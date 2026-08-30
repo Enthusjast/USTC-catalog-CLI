@@ -1,6 +1,6 @@
 {
   "name": "@enthusjast/ustc-catalog-cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "中国科学技术大学本科教务目录命令行客户端，支持课程、培养方案、教学班、教室、考试和替代课程查询",
   "license": "MIT",
   "repository": {
@@ -26,17 +26,21 @@
   },
   "files": [
     "dist",
-    "guide.md"
+    "guide.md",
+    "CHANGELOG.md"
   ],
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "prepack": "npm run build && chmod +x dist/main.js dist/mcp.js",
+    "mcp:smoke": "npm run build && node scripts/mcp-smoke.mjs",
+    "package:smoke": "npm run build && node scripts/package-smoke.mjs",
+    "prepack": "npm run build && node scripts/set-executable.mjs",
     "check": "npm run typecheck && npm run lint && npm test && npm run build",
     "dev": "tsx src/main.ts",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src tests"
@@ -58,6 +62,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.15.21",
+    "@vitest/coverage-v8": "^3.2.7",
     "eslint": "^9.27.0",
     "prettier": "^3.5.3",
     "tsx": "^4.19.4",

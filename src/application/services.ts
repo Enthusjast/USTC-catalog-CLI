@@ -69,7 +69,6 @@ const buildingNames: Record<string, string> = {
   "41": "太湖路校区教学楼",
   "42": "太湖路校区教学楼",
   "43": "太湖路校区教学楼",
-  "17": "未来技术学院",
 };
 
 const displayedBuildingCodes = new Set([
@@ -160,6 +159,10 @@ export function createServices(config: AppConfig) {
   const policy = new DataAccessPolicy(repository);
   let publicChecked = false;
   let publicCheckPromise: Promise<void> | undefined;
+  const semesterLoads = new Map<string, Promise<Loaded<Semester[]>>>();
+
+  const semesterLoadKey = (options: ServiceOptions): string =>
+    `${options.offline ? "offline" : "online"}:${options.noCache ? "no-cache" : "cache"}:${options.verbose ? "verbose" : "quiet"}`;
 
   const load = async <T>(
     resource: string,
@@ -264,7 +267,7 @@ export function createServices(config: AppConfig) {
         meta: {
           resource: "program-catalog",
           scope: keyword ?? "all",
-          source: "network",
+          source: "static",
           fetchedAt: new Date().toISOString(),
           dataAsOf: "网页内置静态目录",
           stale: false,
@@ -319,9 +322,21 @@ export function createServices(config: AppConfig) {
     },
 
     async semesters(options: ServiceOptions) {
-      const loaded = await loadApi("semesters", "all", () => api.semesters(), options);
-      const value = (loaded.value as unknown[]).map(normalizeSemester).sort((a, b) => b.start.localeCompare(a.start));
-      return { ...loaded, value };
+      const key = semesterLoadKey(options);
+      const existing = semesterLoads.get(key);
+      if (existing) return existing;
+      const pending = (async (): Promise<Loaded<Semester[]>> => {
+        const loaded = await loadApi("semesters", "all", () => api.semesters(), options);
+        const value = (loaded.value as unknown[]).map(normalizeSemester).sort((a, b) => b.start.localeCompare(a.start));
+        return { ...loaded, value };
+      })();
+      semesterLoads.set(key, pending);
+      try {
+        return await pending;
+      } catch (error) {
+        if (semesterLoads.get(key) === pending) semesterLoads.delete(key);
+        throw error;
+      }
     },
 
     async defaultSemester(options: ServiceOptions) {

@@ -25,7 +25,8 @@ const validEnvelope = JSON.stringify({
 describe("CliProcessExecutor", () => {
   it("executes the fixed Node entrypoint without a shell and parses the envelope", async () => {
     const script = temporaryScript(`
-      process.stdout.write(JSON.stringify({
+      import { writeSync } from "node:fs";
+      writeSync(1, JSON.stringify({
         meta: { resource: "test", scope: "args", source: "network", fetchedAt: "now", stale: false },
         data: { argv: process.argv.slice(2) }
       }));
@@ -42,8 +43,9 @@ describe("CliProcessExecutor", () => {
 
   it("parses the CLI error code and hint from stderr", async () => {
     const script = temporaryScript(`
-      process.stderr.write("错误 [CACHE_MISS]：没有缓存。\\n提示：请先联网查询。\\n");
-      process.exit(3);
+      import { writeSync } from "node:fs";
+      writeSync(2, "错误 [CACHE_MISS]：没有缓存。\\n提示：请先联网查询。\\n");
+      process.exitCode = 3;
     `);
     const executor = new CliProcessExecutor({ entryPath: script });
 

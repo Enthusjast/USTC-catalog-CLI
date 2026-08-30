@@ -8,6 +8,7 @@ export type CourseCatalogEntry = {
 /**
  * This table is copied from the current site's `ko` configuration. The
  * visible code is not necessarily the API's internal group id.
+ * Last verified against catalog.ustc.edu.cn on 2026-08-30.
  */
 export const COURSE_CATALOG_ENTRIES: CourseCatalogEntry[] = [
   { code: "ma", name: "数学类", kind: "generic", sourceIds: ["43"] },
