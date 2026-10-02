@@ -24,7 +24,7 @@ npm --version
 包发布后，执行：
 
 ```bash
-npm install --global @enthusjast/ustc-catalog-cli
+npm install --global ustc-catalog-cli
 ```
 
 安装后，程序命令名是 `catalog`：
@@ -149,7 +149,7 @@ catalog --csv lesson list --department 001 > lessons.csv
       "args": [
         "--yes",
         "--package",
-        "@enthusjast/ustc-catalog-cli@0.2.1",
+        "ustc-catalog-cli@0.2.1",
         "catalog-mcp"
       ]
     }
@@ -296,7 +296,7 @@ npm pack
 
 推送形如 `v0.2.1` 的 Git tag 会触发 GitHub Actions 发布流程。发布前需要在 npm 包设置中为该 GitHub 仓库配置 Trusted Publishing（OIDC）；日常开发不需要 npm token 写入仓库。
 
-当前 scoped 包生成的本地压缩包名称类似 `enthusjast-ustc-catalog-cli-0.2.1.tgz`。
+当前包生成的本地压缩包名称类似 `ustc-catalog-cli-0.2.1.tgz`。
 
 ## 详细文档
 

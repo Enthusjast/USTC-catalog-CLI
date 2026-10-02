@@ -22,7 +22,8 @@ const run = (args, options = {}) => execFileSync(npm, args, {
 
 try {
   const packed = JSON.parse(run(["pack", "--ignore-scripts", "--json", "--pack-destination", packageDir]));
-  const tarball = packed[0]?.filename;
+  const packedMetadata = Array.isArray(packed) ? packed[0] : Object.values(packed)[0];
+  const tarball = packedMetadata?.filename;
   assert.ok(tarball, "npm pack did not return a tarball");
 
   const tempPackagePath = path.join(tempDir, "package.json");
@@ -40,7 +41,7 @@ try {
     env: installEnvironment,
   });
 
-  const installedRoot = path.join(tempDir, "node_modules", "@enthusjast", "ustc-catalog-cli");
+  const installedRoot = path.join(tempDir, "node_modules", "ustc-catalog-cli");
   const cliEntry = path.join(installedRoot, "dist", "main.js");
   const mcpEntry = path.join(installedRoot, "dist", "mcp.js");
   const cliOutput = execFileSync(process.execPath, [cliEntry, "--json", "program", "catalog", "数学", "--limit", "1"], {

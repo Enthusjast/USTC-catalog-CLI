@@ -1,5 +1,5 @@
 {
-  "name": "@enthusjast/ustc-catalog-cli",
+  "name": "ustc-catalog-cli",
   "version": "0.2.1",
   "description": "中国科学技术大学本科教务目录命令行客户端，支持课程、培养方案、教学班、教室、考试和替代课程查询",
   "license": "MIT",

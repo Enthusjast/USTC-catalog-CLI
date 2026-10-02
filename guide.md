@@ -1145,7 +1145,7 @@ catalog --json --verbose lesson list --semester 461 \
 从 0.2.0 开始，npm 包同时提供 `catalog-mcp` 命令。它使用本地 stdio 传输，适用于 Claude Desktop、Cursor、VS Code 等支持 MCP 的客户端：
 
 ```bash
-npm install --global @enthusjast/ustc-catalog-cli@0.2.1
+npm install --global ustc-catalog-cli@0.2.1
 catalog-mcp
 ```
 
@@ -1171,7 +1171,7 @@ MCP 客户端配置示例：
       "args": [
         "--yes",
         "--package",
-        "@enthusjast/ustc-catalog-cli@0.2.1",
+        "ustc-catalog-cli@0.2.1",
         "catalog-mcp"
       ]
     }
