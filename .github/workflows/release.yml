@@ -50,6 +50,6 @@ jobs:
         run: npm run check && npm run mcp:smoke && npm run package:smoke
 
       - name: Publish
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ""
+        run: |
+          unset NODE_AUTH_TOKEN
+          npm publish --access public
