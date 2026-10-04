@@ -12,6 +12,13 @@ import type {
 } from "../domain/models.js";
 import type { DisplayRow } from "./output.js";
 
+const classroomUsageTypeLabel = (usage: ClassroomUsage): string => usage.rawType ?? ({
+  lesson: "课程",
+  temporary: "临时借用",
+  exam: "考试",
+  occupancy: "占用",
+})[usage.usageType];
+
 export const courseRows = (items: Course[]): DisplayRow[] =>
   items.map((item) => ({
     课程编号: item.id,
@@ -136,21 +143,56 @@ export const lessonDetailRows = (items: LessonDetail[]): DisplayRow[] =>
   }));
 
 export const classroomRows = (
-  items: Array<{ classroomCode: string; building: string; usages: ClassroomUsage[]; date?: string; floor?: number; seats?: number; roomType?: string }>,
+  items: Array<{
+    classroomCode: string;
+    building: string;
+    usages: ClassroomUsage[];
+    date?: string;
+    floor?: number;
+    seats?: number;
+    roomType?: string;
+    roomTypeName?: string;
+    canBorrow?: boolean;
+    arrangeSchedule?: boolean;
+    arrangeExam?: boolean;
+    dateRange?: { from: string; to: string };
+    availableBetween?: { from: string; to: string; everyDay: boolean };
+  }>,
 ): DisplayRow[] =>
   items.map((item) => ({
-    日期: item.date ?? item.usages[0]?.date ?? "",
+    ...(item.dateRange ? { 日期范围: `${item.dateRange.from} 至 ${item.dateRange.to}` } : { 日期: item.date ?? item.usages[0]?.date ?? "" }),
+    ...(item.availableBetween ? { 空闲时段: `${item.availableBetween.from}-${item.availableBetween.to}（每天）` } : {}),
     教室: item.classroomCode,
     楼栋: item.building,
     楼层: item.floor ?? "",
     座位: item.seats ?? "",
-    房间类型: item.roomType ?? "",
+    房间类型: item.roomTypeName ?? item.roomType ?? "",
+    可借用: item.canBorrow ?? "",
+    可排课: item.arrangeSchedule ?? "",
+    可安排考试: item.arrangeExam ?? "",
     使用情况: item.usages
-      .map((usage) => `${usage.start}-${usage.end} ${usage.courseName ?? usage.usageType}`)
+      .map((usage) => `${usage.start}-${usage.end} ${usage.courseName ?? classroomUsageTypeLabel(usage)}`)
       .join("；"),
     授课教师: item.usages.flatMap((usage) => usage.teachers).join("、"),
-    使用类型: item.usages.map((usage) => usage.usageType).join("、"),
+    使用类型: item.usages.map(classroomUsageTypeLabel).join("、"),
     申请人: item.usages.map((usage) => usage.applicant ?? "").filter(Boolean).join("、"),
+  }));
+
+export const classroomWeekSummaryRows = (items: import("../domain/models.js").ClassroomWeekSummary[]): DisplayRow[] =>
+  items.map((item) => ({
+    教室: item.classroomCode,
+    楼栋: item.building,
+    楼层: item.floor,
+    座位: item.seats,
+    房间类型: item.roomTypeName,
+    可借用: item.canBorrow,
+    可排课: item.arrangeSchedule,
+    使用天数: item.busyDays,
+    使用记录数: item.usageCount,
+    周使用摘要: item.days
+      .filter((day) => day.usages.length > 0)
+      .map((day) => `${day.date} ${day.usages.map((usage) => `${usage.start}-${usage.end} ${usage.courseName ?? classroomUsageTypeLabel(usage)}`).join("、")}`)
+      .join("；") || "无使用记录",
   }));
 
 export const examRows = (items: Exam[]): DisplayRow[] =>

@@ -29,6 +29,13 @@ describe("CLI argument validation", () => {
     expect(() => parseClock("24:01", "结束时间", true)).toThrow();
     await expect(program.parseAsync(["classroom", "available", "--from", "15:00", "--to", "14:00"], { from: "user" }))
       .rejects.toMatchObject({ code: "ARGUMENT_ERROR" });
+    await expect(program.parseAsync([
+      "classroom", "available", "--from", "10:00", "--to", "11:00", "--from-date", "2026-10-04",
+    ], { from: "user" })).rejects.toMatchObject({ code: "ARGUMENT_ERROR" });
+    await expect(program.parseAsync([
+      "classroom", "available", "--date", "2026-10-04", "--from-date", "2026-10-04", "--to-date", "2026-10-05",
+      "--from", "10:00", "--to", "11:00",
+    ], { from: "user" })).rejects.toMatchObject({ code: "ARGUMENT_ERROR" });
     services.repository.close();
   });
 

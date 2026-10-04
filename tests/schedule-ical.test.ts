@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { normalizeExams, normalizeLesson } from "../src/adapters/adapters.js";
-import { examCalendarEvents, lessonCalendarEvents, serializeIcalendar } from "../src/presentation/ical.js";
+import { normalizeExams, normalizeLesson, normalizeTimetable } from "../src/adapters/adapters.js";
+import { classroomCalendarEvents, examCalendarEvents, lessonCalendarEvents, serializeIcalendar } from "../src/presentation/ical.js";
 import { requestedChannels } from "../src/domain/schedule.js";
 
 describe("calendar export", () => {
@@ -57,6 +57,26 @@ describe("calendar export", () => {
     }]);
     const { events } = examCalendarEvents(exams);
     expect(events[0]).toMatchObject({ start: "20261231", end: "20270101", allDay: true });
+  });
+
+  it("exports only valid classroom usage intervals and retains website event types", () => {
+    const usages = normalizeTimetable({
+      timetable: {
+        tmpLessons: [
+          { classroomName: "1101", courseName: "研讨会", type: "会议", start: "09:30", end: "10:30" },
+          { classroomName: "1102", courseName: "无效时间", type: "班会", start: "bad", end: "10:30" },
+        ],
+      },
+    }, "2026-10-04");
+    const result = classroomCalendarEvents(usages);
+    expect(result.skipped).toBe(1);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]).toMatchObject({
+      summary: "会议：研讨会（1101）",
+      start: "20261004T093000",
+      end: "20261004T103000",
+      location: "1101",
+    });
   });
 
   it("does not pretend that a layout without period 5 has a matching free-period channel", () => {

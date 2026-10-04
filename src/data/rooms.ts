@@ -1,4 +1,4 @@
-/** Room inventory shown by the public classroom query; visible buildings verified on 2026-08-30. */
+/** Room inventory from the catalog web bundle, filtered by the website visibility rule; verified 2026-10-04. */
 export type StaticRoom = {
   id: number;
   nameZh: string;
@@ -8,6 +8,13 @@ export type StaticRoom = {
   seats: number;
   buildingCode: string;
   roomTypeCode: string;
+  enabled: boolean;
+  experiment: boolean;
+  mediaRecord: boolean;
+  standardExam: boolean;
+  arrangeSchedule: boolean;
+  arrangeExam: boolean;
+  canBorrow: boolean;
 };
 
 export const STATIC_ROOMS: StaticRoom[] = [
@@ -19,7 +26,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 208,
     "buildingCode": "1",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 199,
@@ -29,7 +43,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 192,
     "buildingCode": "1",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 242,
@@ -39,7 +60,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 20,
     "buildingCode": "1",
-    "roomTypeCode": "9"
+    "roomTypeCode": "9",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 243,
@@ -49,7 +77,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 20,
     "buildingCode": "1",
-    "roomTypeCode": "9"
+    "roomTypeCode": "9",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 12,
@@ -59,7 +94,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 208,
     "buildingCode": "1",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 15,
@@ -69,7 +111,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 208,
     "buildingCode": "1",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 5,
@@ -79,7 +128,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 208,
     "buildingCode": "1",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 17,
@@ -89,7 +145,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 208,
     "buildingCode": "1",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 93,
@@ -99,7 +162,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 21,
     "buildingCode": "2",
-    "roomTypeCode": "5"
+    "roomTypeCode": "5",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": false,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 144,
@@ -109,7 +179,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 94,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 6,
@@ -119,7 +196,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 94,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 201,
@@ -129,7 +213,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 180,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 198,
@@ -139,7 +230,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 180,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 67,
@@ -149,7 +247,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 200,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 145,
@@ -159,7 +264,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 45,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 146,
@@ -169,7 +281,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 21,
     "buildingCode": "2",
-    "roomTypeCode": "9"
+    "roomTypeCode": "9",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 149,
@@ -179,7 +298,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 150,
@@ -189,7 +315,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 151,
@@ -199,7 +332,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 152,
@@ -209,7 +349,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 147,
@@ -219,7 +366,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 33,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 148,
@@ -229,7 +383,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 45,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 202,
@@ -239,7 +400,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 180,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 204,
@@ -249,7 +417,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 180,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 244,
@@ -259,7 +434,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 20,
     "buildingCode": "2",
-    "roomTypeCode": "9"
+    "roomTypeCode": "9",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 153,
@@ -269,7 +451,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 45,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 154,
@@ -279,7 +468,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 155,
@@ -289,7 +485,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 156,
@@ -299,7 +502,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 157,
@@ -309,7 +519,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 158,
@@ -319,7 +536,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 159,
@@ -329,7 +553,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 33,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 160,
@@ -339,7 +570,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 89,
@@ -349,7 +587,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 200,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 49,
@@ -359,7 +604,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 21,
     "buildingCode": "2",
-    "roomTypeCode": "9"
+    "roomTypeCode": "9",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 161,
@@ -369,7 +621,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 45,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 162,
@@ -379,7 +638,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 163,
@@ -389,7 +655,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 164,
@@ -399,7 +672,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 165,
@@ -409,7 +689,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 166,
@@ -419,7 +706,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 168,
@@ -429,7 +723,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 33,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 169,
@@ -439,7 +740,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 92,
@@ -449,7 +757,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 200,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 167,
@@ -459,7 +774,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 45,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 170,
@@ -469,7 +791,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 72,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": false
   },
   {
     "id": 171,
@@ -479,7 +808,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 172,
@@ -489,7 +825,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 173,
@@ -499,7 +842,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 174,
@@ -509,7 +859,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 175,
@@ -519,7 +876,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 33,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": false
   },
   {
     "id": 176,
@@ -529,7 +893,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 177,
@@ -539,7 +910,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 6,
     "seats": 24,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": false,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 18,
@@ -549,7 +927,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 6,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 19,
@@ -559,7 +944,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 6,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 183,
@@ -569,7 +961,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 6,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 181,
@@ -579,7 +978,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 6,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 182,
@@ -589,7 +995,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 6,
     "seats": 65,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 178,
@@ -599,7 +1012,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 6,
     "seats": 33,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 179,
@@ -609,7 +1029,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 6,
     "seats": 50,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": false
   },
   {
     "id": 180,
@@ -619,7 +1046,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 6,
     "seats": 200,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 197,
@@ -629,7 +1063,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 7,
     "seats": 180,
     "buildingCode": "2",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": false,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 10,
@@ -639,7 +1080,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 84,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 52,
@@ -649,7 +1097,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 36,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 88,
@@ -659,7 +1114,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 55,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 114,
@@ -669,7 +1131,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 36,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 80,
@@ -679,7 +1148,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 45,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 117,
@@ -689,7 +1165,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 84,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 105,
@@ -699,7 +1182,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 45,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 118,
@@ -709,7 +1199,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 84,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 119,
@@ -719,7 +1216,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 84,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 94,
@@ -729,7 +1233,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 142,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 98,
@@ -739,7 +1250,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 142,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 99,
@@ -749,7 +1267,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 142,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 222,
@@ -759,7 +1284,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 20,
     "buildingCode": "3",
-    "roomTypeCode": "9"
+    "roomTypeCode": "9",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 104,
@@ -769,7 +1301,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 60,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 100,
@@ -779,7 +1318,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 60,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 106,
@@ -789,7 +1335,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 60,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 120,
@@ -799,7 +1352,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 80,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 203,
@@ -809,7 +1369,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 127,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 211,
@@ -819,7 +1386,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 45,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 55,
@@ -829,7 +1403,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 36,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 107,
@@ -839,7 +1420,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 60,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 108,
@@ -849,7 +1437,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 60,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 110,
@@ -859,7 +1454,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 136,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 112,
@@ -869,7 +1471,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 136,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 101,
@@ -879,7 +1488,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 136,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 322,
@@ -889,7 +1505,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 20,
     "buildingCode": "3",
-    "roomTypeCode": "9"
+    "roomTypeCode": "9",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": false
   },
   {
     "id": 113,
@@ -899,7 +1522,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 60,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 109,
@@ -909,7 +1539,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 60,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 115,
@@ -919,7 +1556,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 60,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 124,
@@ -929,7 +1573,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 80,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 111,
@@ -939,7 +1590,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 127,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 125,
@@ -949,7 +1607,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 56,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 69,
@@ -959,7 +1624,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 36,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 126,
@@ -969,7 +1641,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 60,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 127,
@@ -979,7 +1658,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 60,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 128,
@@ -989,7 +1675,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 136,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 129,
@@ -999,7 +1692,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 136,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 116,
@@ -1009,7 +1709,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 136,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 85,
@@ -1019,7 +1726,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 36,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 86,
@@ -1029,7 +1743,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 36,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 131,
@@ -1039,7 +1760,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 59,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 96,
@@ -1049,7 +1777,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 60,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 130,
@@ -1059,7 +1794,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 84,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 323,
@@ -1069,7 +1811,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 20,
     "buildingCode": "3",
-    "roomTypeCode": "9"
+    "roomTypeCode": "9",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": false
   },
   {
     "id": 121,
@@ -1079,7 +1828,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 84,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 50,
@@ -1089,7 +1845,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 36,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 74,
@@ -1099,7 +1862,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 60,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 141,
@@ -1109,7 +1879,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 70,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 132,
@@ -1119,7 +1896,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 56,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 95,
@@ -1129,7 +1913,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 84,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 134,
@@ -1139,7 +1930,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 84,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 135,
@@ -1149,7 +1947,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 84,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 133,
@@ -1159,7 +1964,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 48,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": false
   },
   {
     "id": 136,
@@ -1169,7 +1981,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 57,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 97,
@@ -1179,7 +1998,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 84,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 82,
@@ -1189,7 +2015,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 190,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 140,
@@ -1199,7 +2032,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 192,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 142,
@@ -1209,7 +2049,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 380,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 81,
@@ -1219,7 +2066,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 192,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 123,
@@ -1229,7 +2083,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 192,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 62,
@@ -1239,7 +2100,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 224,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 65,
@@ -1249,7 +2117,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 224,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 68,
@@ -1259,7 +2134,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 224,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 71,
@@ -1269,7 +2151,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 224,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 72,
@@ -1279,7 +2168,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 224,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 70,
@@ -1289,7 +2185,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 224,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 75,
@@ -1299,7 +2202,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 224,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 184,
@@ -1309,7 +2219,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 180,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 61,
@@ -1319,7 +2236,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 224,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 76,
@@ -1329,7 +2253,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 224,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 77,
@@ -1339,7 +2270,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 224,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 78,
@@ -1349,7 +2287,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 224,
     "buildingCode": "3",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 611,
@@ -1359,7 +2304,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 145,
     "buildingCode": "5",
-    "roomTypeCode": "10"
+    "roomTypeCode": "10",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 91,
@@ -1369,7 +2321,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 208,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 13,
@@ -1379,7 +2338,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 200,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 33,
@@ -1389,7 +2355,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 208,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 200,
@@ -1399,7 +2372,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 42,
     "buildingCode": "5",
-    "roomTypeCode": "9"
+    "roomTypeCode": "9",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": false
   },
   {
     "id": 59,
@@ -1409,7 +2389,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 78,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 64,
@@ -1419,7 +2406,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 80,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 188,
@@ -1429,7 +2423,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 245,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 21,
@@ -1439,7 +2440,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 250,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 22,
@@ -1449,7 +2457,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 245,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 39,
@@ -1459,7 +2474,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 250,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 16,
@@ -1469,7 +2491,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 42,
     "buildingCode": "5",
-    "roomTypeCode": "9"
+    "roomTypeCode": "9",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 40,
@@ -1479,7 +2508,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 78,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 41,
@@ -1489,7 +2525,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 80,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 189,
@@ -1499,7 +2542,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 245,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 190,
@@ -1509,7 +2559,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 250,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 210,
@@ -1519,7 +2576,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 245,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 26,
@@ -1529,7 +2593,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 250,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 34,
@@ -1539,7 +2610,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 42,
     "buildingCode": "5",
-    "roomTypeCode": "9"
+    "roomTypeCode": "9",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 205,
@@ -1549,7 +2627,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 78,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 206,
@@ -1559,7 +2644,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 80,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 191,
@@ -1569,7 +2661,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 245,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 14,
@@ -1579,7 +2678,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 250,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 35,
@@ -1589,7 +2695,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 245,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 36,
@@ -1599,7 +2712,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 250,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 192,
@@ -1609,7 +2729,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 42,
     "buildingCode": "5",
-    "roomTypeCode": "9"
+    "roomTypeCode": "9",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 143,
@@ -1619,7 +2746,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 78,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 122,
@@ -1629,7 +2763,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 80,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 193,
@@ -1639,7 +2780,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 245,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 194,
@@ -1649,7 +2797,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 250,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 195,
@@ -1659,7 +2814,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 245,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 196,
@@ -1669,7 +2831,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 250,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 43,
@@ -1679,7 +2848,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 52,
     "buildingCode": "5",
-    "roomTypeCode": "9"
+    "roomTypeCode": "9",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 37,
@@ -1689,7 +2865,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 66,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 38,
@@ -1699,7 +2882,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 66,
     "buildingCode": "5",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 383,
@@ -1709,7 +2899,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 80,
     "buildingCode": "15",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 384,
@@ -1719,7 +2916,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 120,
     "buildingCode": "15",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 385,
@@ -1729,7 +2933,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 80,
     "buildingCode": "15",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 386,
@@ -1739,7 +2950,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 120,
     "buildingCode": "15",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 388,
@@ -1749,7 +2967,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 80,
     "buildingCode": "15",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 387,
@@ -1759,7 +2984,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 120,
     "buildingCode": "15",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 389,
@@ -1769,7 +3001,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 126,
     "buildingCode": "16",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 390,
@@ -1779,7 +3018,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 180,
     "buildingCode": "16",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 391,
@@ -1789,7 +3035,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 180,
     "buildingCode": "16",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 392,
@@ -1799,7 +3052,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 180,
     "buildingCode": "16",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 393,
@@ -1809,7 +3069,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 140,
     "buildingCode": "16",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 543,
@@ -1819,7 +3086,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 108,
     "buildingCode": "16",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 24,
@@ -1829,7 +3103,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 108,
     "buildingCode": "16",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 527,
@@ -1839,7 +3120,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 374,
     "buildingCode": "14",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 528,
@@ -1849,7 +3137,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 132,
     "buildingCode": "14",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 529,
@@ -1859,7 +3154,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 78,
     "buildingCode": "14",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 530,
@@ -1869,7 +3171,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 72,
     "buildingCode": "14",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 531,
@@ -1879,7 +3188,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 78,
     "buildingCode": "14",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 532,
@@ -1889,7 +3205,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 80,
     "buildingCode": "14",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 522,
@@ -1899,7 +3222,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 80,
     "buildingCode": "11",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 523,
@@ -1909,7 +3239,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 120,
     "buildingCode": "11",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 542,
@@ -1919,7 +3256,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 80,
     "buildingCode": "11",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 462,
@@ -1929,7 +3273,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 36,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 463,
@@ -1939,7 +3290,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 36,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 464,
@@ -1949,7 +3307,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 40,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 465,
@@ -1959,7 +3324,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 36,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 466,
@@ -1969,7 +3341,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 40,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 467,
@@ -1979,7 +3358,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 40,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 468,
@@ -1989,7 +3375,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 36,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 469,
@@ -1999,7 +3392,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 40,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 470,
@@ -2009,7 +3409,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 36,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 471,
@@ -2019,7 +3426,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 108,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 472,
@@ -2029,7 +3443,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 108,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 473,
@@ -2039,7 +3460,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 178,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 474,
@@ -2049,7 +3477,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 36,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 475,
@@ -2059,7 +3494,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 36,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 476,
@@ -2069,7 +3511,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 40,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 477,
@@ -2079,7 +3528,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 36,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 478,
@@ -2089,7 +3545,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 40,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 479,
@@ -2099,7 +3562,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 40,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 480,
@@ -2109,7 +3579,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 36,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 481,
@@ -2119,7 +3596,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 40,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 482,
@@ -2129,7 +3613,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 36,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 483,
@@ -2139,7 +3630,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 108,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 484,
@@ -2149,7 +3647,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 108,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 485,
@@ -2159,7 +3664,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 178,
     "buildingCode": "12",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 525,
@@ -2169,7 +3681,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 260,
     "buildingCode": "13",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 526,
@@ -2179,7 +3698,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 473,
     "buildingCode": "13",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 394,
@@ -2189,7 +3715,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 10,
     "seats": 242,
     "buildingCode": "22",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": true
   },
   {
     "id": 582,
@@ -2199,7 +3732,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 30,
     "buildingCode": "9",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 583,
@@ -2209,7 +3749,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 30,
     "buildingCode": "9",
-    "roomTypeCode": "12"
+    "roomTypeCode": "12",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 584,
@@ -2219,7 +3766,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 30,
     "buildingCode": "9",
-    "roomTypeCode": "13"
+    "roomTypeCode": "13",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 585,
@@ -2229,7 +3783,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 30,
     "buildingCode": "9",
-    "roomTypeCode": "12"
+    "roomTypeCode": "12",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 586,
@@ -2239,7 +3800,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 30,
     "buildingCode": "9",
-    "roomTypeCode": "12"
+    "roomTypeCode": "12",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 587,
@@ -2249,7 +3817,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 60,
     "buildingCode": "9",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 588,
@@ -2259,7 +3834,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 8,
     "buildingCode": "9",
-    "roomTypeCode": "14"
+    "roomTypeCode": "14",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 589,
@@ -2269,7 +3851,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 35,
     "buildingCode": "9",
-    "roomTypeCode": "15"
+    "roomTypeCode": "15",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 590,
@@ -2279,7 +3868,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 35,
     "buildingCode": "9",
-    "roomTypeCode": "15"
+    "roomTypeCode": "15",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 562,
@@ -2289,7 +3885,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 30,
     "buildingCode": "8",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 563,
@@ -2299,7 +3902,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 40,
     "buildingCode": "8",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 564,
@@ -2309,7 +3919,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 30,
     "buildingCode": "8",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": false,
+    "canBorrow": true
   },
   {
     "id": 711,
@@ -2319,7 +3936,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 125,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 712,
@@ -2329,7 +3953,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 95,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 713,
@@ -2339,7 +3970,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 95,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 714,
@@ -2349,7 +3987,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 125,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 715,
@@ -2359,7 +4004,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 40,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 716,
@@ -2369,7 +4021,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 40,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 717,
@@ -2379,7 +4038,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 40,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 718,
@@ -2389,7 +4055,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 40,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 719,
@@ -2399,7 +4072,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 125,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 720,
@@ -2409,7 +4089,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 40,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 721,
@@ -2419,7 +4106,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 40,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 722,
@@ -2429,7 +4123,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 40,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 723,
@@ -2439,7 +4140,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 40,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 724,
@@ -2449,7 +4157,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 125,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 725,
@@ -2459,7 +4174,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 24,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 726,
@@ -2469,7 +4191,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 24,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 727,
@@ -2479,7 +4208,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 24,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 728,
@@ -2489,7 +4225,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 4,
     "seats": 24,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 729,
@@ -2499,7 +4242,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 125,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 730,
@@ -2509,7 +4259,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 24,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 731,
@@ -2519,7 +4276,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 24,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 732,
@@ -2529,7 +4293,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 24,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 733,
@@ -2539,7 +4310,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 5,
     "seats": 24,
     "buildingCode": "41",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": false,
+    "standardExam": false,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 734,
@@ -2549,7 +4327,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 150,
     "buildingCode": "42",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 735,
@@ -2559,7 +4344,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 2,
     "seats": 150,
     "buildingCode": "42",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 736,
@@ -2569,7 +4361,14 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 3,
     "seats": 150,
     "buildingCode": "42",
-    "roomTypeCode": "2"
+    "roomTypeCode": "2",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   },
   {
     "id": 737,
@@ -2579,6 +4378,13 @@ export const STATIC_ROOMS: StaticRoom[] = [
     "floor": 1,
     "seats": 316,
     "buildingCode": "43",
-    "roomTypeCode": "10"
+    "roomTypeCode": "10",
+    "enabled": true,
+    "experiment": false,
+    "mediaRecord": true,
+    "standardExam": true,
+    "arrangeSchedule": true,
+    "arrangeExam": true,
+    "canBorrow": false
   }
 ];

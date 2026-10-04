@@ -96,6 +96,9 @@ export const emitResult = <T>(
       : `警告：网络请求失败，使用缓存数据。抓取时间：${envelope.meta.fetchedAt}${dataAsOf}`;
     process.stderr.write(`${options.noColor ? warning : chalk.yellow(warning)}\n`);
   }
+  if ((envelope.meta.unlocatedUsageCount ?? 0) > 0 && !options.quiet) {
+    process.stderr.write(`提示：公开课表中有 ${envelope.meta.unlocatedUsageCount} 条使用记录无法关联到网页教室目录，未计入房间结果。\n`);
+  }
 
   if (options.format === "json") {
     const jsonData = isArray ? selected : selected[0];

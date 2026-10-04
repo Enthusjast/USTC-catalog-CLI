@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { emitResult } from "../src/presentation/output.js";
-import { normalizeLesson } from "../src/adapters/adapters.js";
-import { lessonExportRows, lessonRows } from "../src/presentation/rows.js";
+import { normalizeLesson, normalizeTimetable } from "../src/adapters/adapters.js";
+import { classroomRows, lessonExportRows, lessonRows } from "../src/presentation/rows.js";
 
 describe("output contracts", () => {
   it("unions columns for mixed table rows in CSV", () => {
@@ -80,6 +80,32 @@ describe("output contracts", () => {
     });
   });
 
+  it("renders classroom usage labels and room properties in Chinese table and CSV rows", () => {
+    const usages = normalizeTimetable({
+      timetable: {
+        tmpLessons: [{ classroomName: "1101", courseName: "讲座", type: "讲座", start: "10:00", end: "11:00" }],
+      },
+    }, "2026-10-04");
+    const rows = classroomRows([{
+      classroomCode: "1101",
+      building: "第一教学楼",
+      date: "2026-10-04",
+      usages,
+      roomType: "2",
+      roomTypeName: "多媒体教室",
+      canBorrow: true,
+      arrangeSchedule: false,
+      arrangeExam: true,
+    }]);
+    expect(rows[0]).toMatchObject({
+      房间类型: "多媒体教室",
+      可借用: true,
+      可排课: false,
+      可安排考试: true,
+      使用类型: "讲座",
+    });
+  });
+
   it("rejects offset for object-shaped results", () => {
     try {
       emitResult(
@@ -155,6 +181,26 @@ describe("output contracts", () => {
     );
     expect(stderr.mock.calls.flat().join("")).toContain("使用离线缓存数据");
     expect(stderr.mock.calls.flat().join("")).not.toContain("网络请求失败");
+    stdout.mockRestore();
+    stderr.mockRestore();
+  });
+
+  it("reports unlocated classroom usages on stderr without corrupting JSON output", () => {
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    emitResult({
+      meta: {
+        resource: "timetable",
+        scope: "2026-10-04",
+        source: "network",
+        fetchedAt: "now",
+        stale: false,
+        unlocatedUsageCount: 2,
+      },
+      data: [],
+    }, { format: "json", limit: undefined, offset: 0, all: false, noColor: true, quiet: false });
+    expect(JSON.parse(String(stdout.mock.calls[0]?.[0])).meta.unlocatedUsageCount).toBe(2);
+    expect(stderr.mock.calls.flat().join("")).toContain("2 条使用记录无法关联到网页教室目录");
     stdout.mockRestore();
     stderr.mockRestore();
   });

@@ -197,8 +197,14 @@ describe("USTC catalog MCP tools", () => {
       { name: "ustc_classroom_buildings", arguments: {}, expected: ["classroom", "buildings"] },
       {
         name: "ustc_classroom_list",
-        arguments: { date: "2026-08-26", building: "1,2", keyword: "数学", available: true, freePeriod: 3 },
-        expected: ["classroom", "list", "--date", "2026-08-26", "--building", "1,2", "--keyword", "数学", "--available", "--free-period", "3"],
+        arguments: {
+          date: "2026-08-26", building: "1,2", keyword: "数学", usageType: "会议,讲座", roomType: "2",
+          bookable: true, arrangeable: true, available: true, freePeriod: 3,
+        },
+        expected: [
+          "classroom", "list", "--date", "2026-08-26", "--building", "1,2", "--keyword", "数学",
+          "--usage-type", "会议,讲座", "--room-type", "2", "--bookable", "--arrangeable", "--available", "--free-period", "3",
+        ],
       },
       {
         name: "ustc_classroom_show",
@@ -207,13 +213,25 @@ describe("USTC catalog MCP tools", () => {
       },
       {
         name: "ustc_classroom_available",
-        arguments: { date: "2026-08-26", from: "14:00", to: "16:00", minSeats: 30 },
-        expected: ["classroom", "available", "--date", "2026-08-26", "--from", "14:00", "--to", "16:00", "--min-seats", "30"],
+        arguments: {
+          fromDate: "2026-08-23", toDate: "2026-08-29", from: "14:00", to: "16:00", minSeats: 30,
+          roomType: "多媒体教室", bookable: true, arrangeable: true,
+        },
+        expected: [
+          "classroom", "available", "--from-date", "2026-08-23", "--to-date", "2026-08-29", "--from", "14:00", "--to", "16:00",
+          "--min-seats", "30", "--room-type", "多媒体教室", "--bookable", "--arrangeable",
+        ],
       },
       {
         name: "ustc_classroom_week",
-        arguments: { date: "2026-08-26", building: "1,2,3" },
-        expected: ["classroom", "week", "--date", "2026-08-26", "--building", "1,2,3"],
+        arguments: {
+          date: "2026-08-26", building: "1,2,3", usageType: "会议", roomType: "2,9",
+          bookable: true, arrangeable: true, summary: true,
+        },
+        expected: [
+          "classroom", "week", "--date", "2026-08-26", "--building", "1,2,3", "--usage-type", "会议",
+          "--room-type", "2,9", "--bookable", "--arrangeable", "--summary",
+        ],
       },
       {
         name: "ustc_exam_list",

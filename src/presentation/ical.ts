@@ -1,4 +1,4 @@
-import type { Exam, Lesson, LessonSpan, Semester } from "../domain/models.js";
+import type { ClassroomUsage, Exam, Lesson, LessonSpan, Semester } from "../domain/models.js";
 import { spanHasUnparsedWeeks, spanPeriods, spanWeeks, timeToMinutes } from "../domain/schedule.js";
 import { CliError } from "../domain/errors.js";
 
@@ -144,6 +144,51 @@ export const examCalendarEvents = (exams: Exam[]): { events: IcsEvent[]; skipped
       ].join("\n"),
       location: exam.rooms.map((room) => room.room).join("、"),
     });
+  }
+  return { events, skipped };
+};
+
+export const classroomCalendarEvents = (usages: ClassroomUsage[]): { events: IcsEvent[]; skipped: number } => {
+  const events: IcsEvent[] = [];
+  let skipped = 0;
+  for (const [index, usage] of usages.entries()) {
+    if (!validDate(usage.date)) {
+      skipped += 1;
+      continue;
+    }
+    const start = timeToMinutes(usage.start);
+    const end = timeToMinutes(usage.end);
+    if (start === undefined || end === undefined || end <= start) {
+      skipped += 1;
+      continue;
+    }
+    const date = datePart(usage.date);
+    const kind = usage.rawType ?? ({
+      lesson: "课程",
+      temporary: "临时借用",
+      exam: "考试",
+      occupancy: "占用",
+    }[usage.usageType]);
+    const allDay = start === 0 && end >= 23 * 60 + 59;
+    events.push({
+      uid: `classroom-${encodeURIComponent(usage.classroomCode)}-${date}-${start}-${end}-${index}@ustc-catalog-cli`,
+      summary: `${kind}：${usage.courseName || "教室使用"}（${usage.classroomCode}）`,
+      ...(allDay
+        ? { start: date, end: datePart(nextDate(usage.date)), allDay: true }
+        : { start: `${date}T${timePart(start)}`, end: `${date}T${timePart(end)}` }),
+      description: [
+        `使用类型：${kind}`,
+        `教室：${usage.classroomCode}`,
+        `课程编号：${usage.courseIds.join("、") || "无"}`,
+        `教师：${usage.teachers.join("、") || "无"}`,
+        `申请人：${usage.applicant ?? "无"}`,
+        `主办方：${usage.sponsor ?? "无"}`,
+      ].join("\n"),
+      location: usage.classroomCode,
+    });
+    if (events.length > MAX_CALENDAR_EVENTS) {
+      throw new CliError("ARGUMENT_ERROR", `日历导出超过 ${MAX_CALENDAR_EVENTS} 条活动上限。`, "请按日期或楼栋筛选，或使用 --limit 缩小结果范围。");
+    }
   }
   return { events, skipped };
 };

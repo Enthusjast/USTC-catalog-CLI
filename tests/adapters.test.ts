@@ -174,6 +174,13 @@ describe("web behavior adapters", () => {
 
   it("keeps the static room inventory aligned with visible classroom buildings", () => {
     expect(STATIC_ROOMS.some((room) => room.buildingCode === "17")).toBe(false);
+    expect(STATIC_ROOMS).toHaveLength(257);
+    expect(STATIC_ROOMS.every((room) => room.enabled && (room.canBorrow || room.arrangeSchedule))).toBe(true);
+    expect(STATIC_ROOMS.find((room) => room.code === "2102")).toMatchObject({
+      roomTypeCode: "5",
+      arrangeSchedule: false,
+      canBorrow: true,
+    });
   });
 
   it("merges timetable usage records and keeps course ids searchable", () => {
@@ -216,5 +223,19 @@ describe("web behavior adapters", () => {
     }, "2026-10-04");
     expect(mergeClassroomUsages(records.map((item) => ({ ...item, channels: [3, 4] }))))
       .toMatchObject([{ start: "09:30", end: "11:00" }]);
+  });
+
+  it("preserves web usage labels and never merges different temporary-use types", () => {
+    const records = normalizeTimetable({
+      timetable: {
+        tmpLessons: [
+          { classroomName: "1101", courseName: "活动", type: "会议", applierName: "张老师", start: "9:30", end: "10:30" },
+          { classroomName: "1101", courseName: "活动", type: "班会", applierName: "张老师", start: "10:00", end: "10:30" },
+        ],
+      },
+    }, "2026-10-04");
+
+    expect(records.map((item) => item.rawType)).toEqual(["会议", "班会"]);
+    expect(mergeClassroomUsages(records.map((item) => ({ ...item, channels: [3, 4] })))).toHaveLength(2);
   });
 });

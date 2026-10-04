@@ -249,11 +249,44 @@ describe("CLI contract", () => {
     }
   });
 
+  it("exports cached classroom usage to iCalendar with the source usage type", async () => {
+    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "catalog-cli-classroom-ics-"));
+    const { program, services } = buildCli({ cacheDir });
+    services.repository.write("timetable", "2026-10-04", "fixture", {
+      timetable: {
+        lessons: [],
+        tmpLessons: [{ classroomName: "1101", courseName: "读书会", type: "会议", start: "09:30", end: "10:30" }],
+        roomOccupies: [],
+        exams: [],
+        makeupExams: [],
+        tmpExams: [],
+      },
+    });
+    program.exitOverride();
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    try {
+      await program.parseAsync(["--offline", "--ics", "classroom", "list", "--date", "2026-10-04"], { from: "user" });
+      const calendar = stdout.mock.calls.map(([value]) => String(value)).join("");
+      expect(calendar).toContain("BEGIN:VCALENDAR");
+      expect(calendar).toContain("SUMMARY:会议：读书会（1101）");
+      expect(calendar).toContain("DTSTART;TZID=Asia/Shanghai:20261004T093000");
+
+      stdout.mockClear();
+      await program.parseAsync(["--offline", "--ics", "classroom", "show", "1101", "--date", "2026-10-04"], { from: "user" });
+      expect(stdout.mock.calls.map(([value]) => String(value)).join("")).toContain("SUMMARY:会议：读书会（1101）");
+    } finally {
+      stdout.mockRestore();
+      services.repository.close();
+    }
+  });
+
   it("rejects iCalendar output for unsupported commands before running their action", async () => {
     const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "catalog-cli-ics-unsupported-"));
     const { program, services } = buildCli({ cacheDir });
     program.exitOverride();
     await expect(program.parseAsync(["--ics", "course", "search", "数学"], { from: "user" }))
+      .rejects.toMatchObject({ code: "ARGUMENT_ERROR" });
+    await expect(program.parseAsync(["--ics", "classroom", "available", "--from", "10:00", "--to", "11:00"], { from: "user" }))
       .rejects.toMatchObject({ code: "ARGUMENT_ERROR" });
     services.repository.close();
   });

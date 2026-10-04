@@ -51,6 +51,10 @@ export type ClassroomFilter = {
   freePeriod?: FreePeriod;
   availableBetween?: { from: number; to: number };
   availableOnly?: boolean;
+  usageType?: string[];
+  roomType?: string[];
+  bookable?: boolean;
+  arrangeable?: boolean;
 };
 
 export type ExamFilter = {

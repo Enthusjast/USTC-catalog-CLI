@@ -51,6 +51,15 @@ catalog lesson list --course 数学
 
 # 查看今天的空闲教室
 catalog classroom list --available
+
+# 找出一周内每天 14:00–16:00 都空闲、可借用且至少 30 座的教室
+catalog classroom available --from-date 2026-10-04 --to-date 2026-10-10 --from 14:00 --to 16:00 --bookable --min-seats 30
+
+# 按教室汇总整周使用情况
+catalog classroom week --summary
+
+# 导出某日教室使用记录到日历
+catalog --ics classroom list --date 2026-10-04 > classrooms.ics
 ```
 
 默认输出是终端表格。需要脚本处理时，使用 `--json` 或 `--csv`：
@@ -84,11 +93,11 @@ catalog --ics lesson list --semester 461 --course 数学 > math.ics
 | `catalog lesson options` | 查看学期教学班筛选值与数量 | `catalog lesson options --semester 461` |
 | `catalog lesson conflicts <课堂号...>` | 检查教学班的可能时间冲突 | `catalog lesson conflicts MATH1001.01 PHYS1001.01 --semester 461` |
 | `catalog lesson show <课堂号...>` | 查看教学班和课程详情 | `catalog lesson show MATH1001.01 --semester 461` |
-| `catalog classroom list` | 查看指定日期的教室使用情况 | `catalog classroom list --available` |
-| `catalog classroom available` | 按时间范围找空闲教室 | `catalog classroom available --from 14:00 --to 16:00` |
+| `catalog classroom list` | 按日期、楼栋、记录类型和房间属性查看教室使用情况 | `catalog classroom list --usage-type 会议,讲座 --bookable` |
+| `catalog classroom available` | 按单日或多日时间范围找空闲教室 | `catalog classroom available --from-date 2026-10-04 --to-date 2026-10-10 --from 14:00 --to 16:00` |
 | `catalog classroom buildings` | 查看楼栋代码和房间数 | `catalog classroom buildings` |
 | `catalog classroom show <教室>` | 查看单个教室 | `catalog classroom show 2303` |
-| `catalog classroom week` | 查看一周教室使用情况 | `catalog classroom week` |
+| `catalog classroom week` | 查看一周教室使用情况或按教室汇总 | `catalog classroom week --summary` |
 | `catalog exam list` | 查询考试 | `catalog exam list --course 微积分` |
 | `catalog exam show <考试ID>` | 查看单个考试 | `catalog exam show 13138 --semester 441` |
 | `catalog substitute list` | 查询替代课程关系 | `catalog substitute list --course 数学分析` |
@@ -195,7 +204,7 @@ catalog --csv lesson list --department 001 > lessons.csv
 | --- | --- |
 | `--json` | 输出规范化 JSON |
 | `--csv` | 输出规范化 CSV |
-| `--ics` | 教学班或考试列表导出 iCalendar |
+| `--ics` | 教学班、考试列表或教室使用记录导出 iCalendar |
 | `--offline` | 只读取缓存，不发起网络请求 |
 | `--no-cache` | 忽略已有缓存并强制请求最新数据 |
 | `--cache-dir <path>` | 覆盖 SQLite 缓存目录 |
@@ -238,6 +247,22 @@ catalog --no-cache course search 数学
 ```bash
 catalog classroom available --date 2026-10-04 --from 14:00 --to 16:00 --min-seats 30
 ```
+
+多日查询只返回日期范围内每天该时段都没有公开占用记录的教室：
+
+```bash
+catalog classroom available --from-date 2026-10-04 --to-date 2026-10-10 --from 14:00 --to 16:00 --bookable --min-seats 30
+```
+
+“空闲”是根据公开课表记录推算，不代表教室已获准预约。教室使用记录还可以导出 iCalendar：
+
+```bash
+catalog --ics classroom list --date 2026-10-04 > classrooms.ics
+catalog --ics classroom show 2303 --date 2026-10-04 > room-2303.ics
+catalog --ics classroom week --date 2026-10-04 > classroom-week.ics
+```
+
+日历只包含课表中已有的使用记录，不会把推算出的空闲时段写成预约事件。`--ics` 不能用于 `classroom available`。
 
 缓存可按学期预取，按抓取时间清理：
 

@@ -15,8 +15,8 @@ const isKnownReadOnlyCommand = (args: string[]): boolean => {
   let index = 0;
   while (index < args.length && args[index].startsWith("--")) {
     const option = args[index++];
-    if (["--json", "--csv", "--ics", "--offline", "--no-cache", "--all", "--no-color", "--quiet", "--verbose"].includes(option)) continue;
-    if (["--limit", "--offset", "--timeout", "--semester", "--department", "--major", "--grade", "--type", "--term", "--date", "--building", "--keyword", "--available", "--free-period", "--course", "--teacher", "--location", "--span", "--weekday", "--period", "--week", "--class-type", "--course-type", "--course-classify", "--sort", "--desc", "--class", "--education", "--include-invalid", "--mode", "--multiple", "--single", "--courses"].includes(option)) {
+    if (["--json", "--csv", "--ics", "--offline", "--no-cache", "--all", "--no-color", "--quiet", "--verbose", "--bookable", "--arrangeable", "--summary"].includes(option)) continue;
+    if (["--limit", "--offset", "--timeout", "--semester", "--department", "--major", "--grade", "--type", "--term", "--date", "--from-date", "--to-date", "--building", "--keyword", "--usage-type", "--room-type", "--available", "--free-period", "--course", "--teacher", "--location", "--span", "--weekday", "--period", "--week", "--class-type", "--course-type", "--course-classify", "--sort", "--desc", "--class", "--education", "--include-invalid", "--mode", "--multiple", "--single", "--courses"].includes(option)) {
       if (index < args.length && !args[index].startsWith("--")) index += 1;
       continue;
     }

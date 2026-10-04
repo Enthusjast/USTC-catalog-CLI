@@ -1,7 +1,7 @@
 const commandWords = [
   "semester department calendar course program lesson classroom exam substitute cache preset doctor completion",
   "list options search show catalog document history module week summary available buildings conflicts",
-  "--json --csv --ics --offline --no-cache --limit --offset --all --no-color --wide --verbose",
+  "--json --csv --ics --offline --no-cache --limit --offset --all --no-color --wide --verbose --usage-type --room-type --from-date --to-date --bookable --arrangeable --summary",
 ].join(" ");
 
 export const shellCompletion = (shell: string): string => {

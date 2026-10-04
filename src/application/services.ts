@@ -21,7 +21,7 @@ import {
   normalizeSubstitutes,
   normalizeTimetable,
 } from "../adapters/adapters.js";
-import type { ClassroomUsage, FreePeriod, Lesson, LessonFilterOption, Semester } from "../domain/models.js";
+import type { ClassroomUsage, ClassroomWeekSummary, FreePeriod, Lesson, LessonFilterOption, Semester } from "../domain/models.js";
 import type { AccessOptions } from "./data-access-policy.js";
 import type { AppConfig } from "../infrastructure/config/paths.js";
 import { CatalogApiClient, type ApiResult } from "../infrastructure/http/catalog-api-client.js";
@@ -67,14 +67,81 @@ const buildingNames: Record<string, string> = {
   "15": "高新校区2号学科楼",
   "16": "高新校区3号学科楼",
   "22": "高新校区信智楼",
-  "41": "太湖路校区教学楼",
-  "42": "太湖路校区教学楼",
-  "43": "太湖路校区教学楼",
+  "41": "太湖路园区教学楼A楼",
+  "42": "太湖路园区教学楼B楼",
+  "43": "太湖路园区教学楼C楼（报告厅）",
+};
+
+const roomTypeNames: Record<string, string> = {
+  "1": "普通教室",
+  "2": "多媒体教室",
+  "3": "语音机房",
+  "4": "实验室",
+  "5": "研讨室",
+  "7": "录播教室",
+  "8": "绘画室",
+  "9": "智慧型研讨室",
+  "10": "报告厅",
+  "12": "绘画教室",
+  "13": "摄影教室",
+  "14": "钢琴教室",
+  "15": "舞蹈教室",
+};
+
+const usageTypeLabels: Record<ClassroomUsage["usageType"], string> = {
+  lesson: "课程",
+  temporary: "临时借用",
+  exam: "考试",
+  occupancy: "占用",
+};
+
+type ClassroomFilters = {
+  building?: string;
+  keyword?: string;
+  freePeriod?: FreePeriod;
+  availableBetween?: { from: number; to: number };
+  minSeats?: number;
+  availableOnly?: boolean;
+  usageType?: string[];
+  roomType?: string[];
+  bookable?: boolean;
+  arrangeable?: boolean;
+};
+
+const formatMinutes = (minutes: number): string =>
+  `${Math.floor(minutes / 60).toString().padStart(2, "0")}:${(minutes % 60).toString().padStart(2, "0")}`;
+
+const datesBetween = (from: string, to: string): string[] => {
+  const [fromYear, fromMonth, fromDay] = from.split("-").map(Number);
+  const [toYear, toMonth, toDay] = to.split("-").map(Number);
+  const first = Date.UTC(fromYear, fromMonth - 1, fromDay);
+  const last = Date.UTC(toYear, toMonth - 1, toDay);
+  const dayCount = Math.floor((last - first) / 86400000) + 1;
+  if (dayCount < 1) throw new CliError("ARGUMENT_ERROR", "结束日期必须不早于开始日期。");
+  if (dayCount > 31) throw new CliError("ARGUMENT_ERROR", "一次最多查询 31 天的教室空闲情况。");
+  return Array.from({ length: dayCount }, (_, index) =>
+    new Date(first + index * 86400000).toISOString().slice(0, 10),
+  );
 };
 
 const displayedBuildingCodes = new Set([
   "1", "2", "3", "5", "8", "9", "11", "12", "13", "14", "15", "16", "22", "41", "42", "43",
 ]);
+
+const roomsByCode = new Map<string, typeof STATIC_ROOMS>();
+for (const room of STATIC_ROOMS) {
+  roomsByCode.set(room.code, [...(roomsByCode.get(room.code) ?? []), room]);
+}
+
+const roomForUsage = (usage: ClassroomUsage): typeof STATIC_ROOMS[number] | undefined => {
+  if (!usage.classroomCode) return undefined;
+  const candidates = (roomsByCode.get(usage.classroomCode) ?? []).filter((room) =>
+    usage.buildingCode === undefined || room.buildingCode === usage.buildingCode,
+  );
+  return candidates.length === 1 ? candidates[0] : undefined;
+};
+
+const roomUsageKey = (buildingCode: string, roomCode: string): string => `${buildingCode}\u0000${roomCode}`;
 
 const asNetworkValue = <T>(result: ApiResult<T>, dataAsOf?: string | null): NetworkValue<T> => ({
   value: result.data,
@@ -101,6 +168,9 @@ const aggregateMeta = (
       .at(-1) ?? new Date().toISOString(),
     dataAsOf: dataAsOf.size === 1 ? [...dataAsOf][0] : null,
     stale: values.some((value) => value.meta.stale),
+    ...(values.some((value) => value.meta.unlocatedUsageCount !== undefined)
+      ? { unlocatedUsageCount: values.reduce((sum, value) => sum + (value.meta.unlocatedUsageCount ?? 0), 0) }
+      : {}),
   };
 };
 
@@ -457,7 +527,7 @@ export function createServices(config: AppConfig) {
           scope: "all",
           source: "static" as const,
           fetchedAt: new Date().toISOString(),
-          dataAsOf: "教室目录随 CLI 版本固化",
+          dataAsOf: "网页目录核对于 2026-10-04，随 CLI 版本固化",
           stale: false,
         },
       };
@@ -465,22 +535,30 @@ export function createServices(config: AppConfig) {
 
     async list(
       date: string,
-      filters: { building?: string; keyword?: string; freePeriod?: FreePeriod; availableBetween?: { from: number; to: number }; minSeats?: number; availableOnly?: boolean },
+      filters: ClassroomFilters,
       options: ServiceOptions,
     ) {
       const loaded = await loadApi("timetable", date, () => api.timetable(date), options, date);
-      const usages = mergeClassroomUsages(
-        normalizeTimetable(loaded.value, date).map(applyUsageChannels),
-      );
+      const rawUsages = normalizeTimetable(loaded.value, date);
+      const unlocatedUsageCount = rawUsages.filter((usage) => !roomForUsage(usage)).length;
+      const usages = mergeClassroomUsages(rawUsages.map(applyUsageChannels));
       const grouped = new Map<string, ClassroomUsage[]>();
       for (const usage of usages) {
-        grouped.set(usage.classroomCode, [...(grouped.get(usage.classroomCode) ?? []), usage]);
+        const room = roomForUsage(usage);
+        if (!room) continue;
+        const key = roomUsageKey(room.buildingCode, room.code);
+        grouped.set(key, [...(grouped.get(key) ?? []), usage]);
       }
       const rawGrouped = new Map<string, ClassroomUsage[]>();
-      for (const usage of normalizeTimetable(loaded.value, date)) {
-        rawGrouped.set(usage.classroomCode, [...(rawGrouped.get(usage.classroomCode) ?? []), usage]);
+      for (const usage of rawUsages) {
+        const room = roomForUsage(usage);
+        if (!room) continue;
+        const key = roomUsageKey(room.buildingCode, room.code);
+        rawGrouped.set(key, [...(rawGrouped.get(key) ?? []), usage]);
       }
       const keyword = filters.keyword?.toLowerCase();
+      const usageTypes = filters.usageType ?? [];
+      const roomTypes = filters.roomType ?? [];
       const value = STATIC_ROOMS.flatMap((room) => {
         if (!displayedBuildingCodes.has(room.buildingCode)) return [];
         const buildings = (filters.building ?? "")
@@ -493,7 +571,16 @@ export function createServices(config: AppConfig) {
           (buildings.includes("4123") && ["41", "42", "43"].includes(room.buildingCode));
         if (!buildingMatches) return [];
         if (filters.minSeats !== undefined && room.seats < filters.minSeats) return [];
-        const entries = grouped.get(room.code) ?? [];
+        if (roomTypes.length > 0 && !roomTypes.some((type) =>
+          type === room.roomTypeCode || type === roomTypeNames[room.roomTypeCode])) return [];
+        if (filters.bookable && !room.canBorrow) return [];
+        if (filters.arrangeable && !room.arrangeSchedule) return [];
+        const key = roomUsageKey(room.buildingCode, room.code);
+        const entries = grouped.get(key) ?? [];
+        const displayedEntries = usageTypes.length === 0
+          ? entries
+          : entries.filter((usage) => usageTypes.includes(usage.rawType ?? "") || usageTypes.includes(usageTypeLabels[usage.usageType]));
+        if (usageTypes.length > 0 && displayedEntries.length === 0) return [];
         if (filters.availableOnly && entries.length > 0) return [];
         if (filters.freePeriod === 0 && entries.length > 0) {
           return [];
@@ -505,12 +592,13 @@ export function createServices(config: AppConfig) {
         if (requested.length > 0 && entries.some((item) => requested.some((channel) => item.channels.includes(channel)))) {
           return [];
         }
-        if (filters.availableBetween && (rawGrouped.get(room.code) ?? []).some((item) => timeRangeOverlaps(
-          item.start,
-          item.end,
-          filters.availableBetween!.from,
-          filters.availableBetween!.to,
-        ))) return [];
+        if (filters.availableBetween && (rawGrouped.get(key) ?? []).some((item) =>
+          item.allDay || timeRangeOverlaps(
+            item.start,
+            item.end,
+            filters.availableBetween!.from,
+            filters.availableBetween!.to,
+          ))) return [];
         if (keyword) {
           const haystack = `${room.code} ${room.nameZh} ${entries
             .map((item) => `${item.courseIds.join(" ")} ${item.courseName ?? ""} ${item.teachers.join(" ")} ${item.applicant ?? ""} ${item.sponsor ?? ""}`)
@@ -519,14 +607,63 @@ export function createServices(config: AppConfig) {
         }
         return [{
           classroomCode: room.code,
+          date,
           building: buildingNames[room.buildingCode] ?? "其他",
           roomType: room.roomTypeCode,
+          roomTypeName: roomTypeNames[room.roomTypeCode] ?? "其他",
           floor: room.floor,
           seats: room.seats,
-          usages: entries,
+          enabled: room.enabled,
+          experiment: room.experiment,
+          mediaRecord: room.mediaRecord,
+          standardExam: room.standardExam,
+          canBorrow: room.canBorrow,
+          arrangeSchedule: room.arrangeSchedule,
+          arrangeExam: room.arrangeExam,
+          usages: displayedEntries,
         }];
       });
-      return { ...loaded, value };
+      return {
+        ...loaded,
+        meta: { ...loaded.meta, unlocatedUsageCount },
+        value,
+      };
+    },
+
+    async availableAcrossDates(
+      fromDate: string,
+      toDate: string,
+      filters: Omit<ClassroomFilters, "freePeriod" | "availableOnly" | "usageType"> & { availableBetween: { from: number; to: number } },
+      options: ServiceOptions,
+    ) {
+      const dates = datesBetween(fromDate, toDate);
+      const results = await Promise.all(dates.map((date) => classroomService.list(date, filters, options)));
+      const availableCodes = new Set(results[0]?.value.map((room) => room.classroomCode) ?? []);
+      for (const result of results.slice(1)) {
+        const availableThatDay = new Set(result.value.map((room) => room.classroomCode));
+        for (const code of availableCodes) if (!availableThatDay.has(code)) availableCodes.delete(code);
+      }
+      const value = (results[0]?.value ?? [])
+        .filter((room) => availableCodes.has(room.classroomCode))
+        .map((room) => ({
+          ...room,
+          date: undefined,
+          dateRange: { from: fromDate, to: toDate },
+          availableBetween: {
+            from: formatMinutes(filters.availableBetween.from),
+            to: formatMinutes(filters.availableBetween.to),
+            everyDay: true,
+          },
+          usages: [],
+        }));
+      const meta = aggregateMeta(results, "timetable", `available:${fromDate}:${toDate}`);
+      return {
+        value,
+        meta: {
+          ...meta,
+          dataAsOf: `${fromDate} 至 ${toDate}`,
+        },
+      };
     },
 
     async show(
@@ -540,7 +677,7 @@ export function createServices(config: AppConfig) {
       return { ...result, value: room };
     },
 
-    async week(date: string, filters: { building?: string }, options: ServiceOptions) {
+    async week(date: string, filters: ClassroomFilters, options: ServiceOptions) {
       const [year, month, dayOfMonth] = date.split("-").map(Number);
       const anchor = new Date(Date.UTC(year, month - 1, dayOfMonth));
       const day = anchor.getUTCDay();
@@ -552,13 +689,48 @@ export function createServices(config: AppConfig) {
       const weekMeta = aggregateMeta(results, "timetable", `week:${date}`);
       return {
         value: results.flatMap((result, index) =>
-          result.value.map((room) => ({ date: dates[index], ...room })),
+          result.value.map((room) => ({ ...room, date: dates[index] })),
         ),
         meta: {
           ...weekMeta,
           dataAsOf: `${dates[0]} 至 ${dates[6]}`,
         },
       };
+    },
+
+    async weekSummary(date: string, filters: ClassroomFilters, options: ServiceOptions) {
+      const week = await classroomService.week(date, filters, options);
+      const dates = datesBetween(week.meta.dataAsOf?.split(" 至 ")[0] ?? date, week.meta.dataAsOf?.split(" 至 ")[1] ?? date);
+      const byCode = new Map<string, Array<(typeof week.value)[number]>>();
+      for (const item of week.value) {
+        byCode.set(item.classroomCode, [...(byCode.get(item.classroomCode) ?? []), item]);
+      }
+      const value: ClassroomWeekSummary[] = [...byCode.entries()].map(([classroomCode, items]) => {
+        const room = items[0]!;
+        const daily = dates.map((day) => ({
+          date: day,
+          usages: items.find((item) => item.date === day)?.usages ?? [],
+        }));
+        return {
+          classroomCode,
+          building: room.building,
+          floor: room.floor,
+          seats: room.seats,
+          roomType: room.roomType,
+          roomTypeName: room.roomTypeName,
+          enabled: room.enabled,
+          experiment: room.experiment,
+          mediaRecord: room.mediaRecord,
+          standardExam: room.standardExam,
+          canBorrow: room.canBorrow,
+          arrangeSchedule: room.arrangeSchedule,
+          arrangeExam: room.arrangeExam,
+          busyDays: daily.filter((day) => day.usages.length > 0).length,
+          usageCount: daily.reduce((sum, day) => sum + day.usages.length, 0),
+          days: daily,
+        };
+      });
+      return { ...week, value };
     },
   };
 

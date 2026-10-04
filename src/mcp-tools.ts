@@ -51,6 +51,7 @@ const outputSchema = {
     fetchedAt: z.string(),
     dataAsOf: z.string().nullable().optional(),
     stale: z.boolean(),
+    unlocatedUsageCount: z.number().int().nonnegative().optional(),
   }),
   data: z.unknown(),
 };
@@ -343,11 +344,15 @@ export const registerCatalogTools = (server: McpServer, executor: CliExecutor): 
   register(server, executor, "ustc_classroom_buildings", "列出网页教室筛选器可选的楼栋代码和房间数量。", commonSchema(),
     (args) => commandArgs(["classroom", "buildings"], args));
 
-  register(server, executor, "ustc_classroom_list", "查看指定日期的教室使用情况，并筛选楼栋、关键词、空闲状态或节次。", {
+  register(server, executor, "ustc_classroom_list", "查看指定日期的教室使用情况，并筛选楼栋、关键词、记录类型、房间属性或空闲状态。", {
     ...commonSchema(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("日期；省略时使用中国标准时间当天。"),
     building: z.string().optional().describe("楼栋代码，可用逗号分隔。"),
     keyword: z.string().optional().describe("房间、课程、教师、申请人或主办方关键词。"),
+    usageType: z.string().optional().describe("使用记录类型；可用逗号分隔多个网页类型或课程、临时借用、考试、占用。"),
+    roomType: z.string().optional().describe("房间类型代码或名称，可用逗号分隔。"),
+    bookable: z.boolean().optional().describe("只保留网页标记为可借用的教室。"),
+    arrangeable: z.boolean().optional().describe("只保留网页标记为可排课的教室。"),
     available: z.boolean().optional().describe("只显示当天没有使用记录的教室。"),
     freePeriod: z.union([z.number().int().min(0).max(13), z.enum(["noon", "evening"])]).optional()
       .describe("只显示指定节次空闲的教室；0 表示全天空闲，noon/evening 表示中午/傍晚。"),
@@ -356,25 +361,39 @@ export const registerCatalogTools = (server: McpServer, executor: CliExecutor): 
     appendOption(command, "--date", stringValue(args, "date"));
     appendOption(command, "--building", stringValue(args, "building"));
     appendOption(command, "--keyword", stringValue(args, "keyword"));
+    appendOption(command, "--usage-type", stringValue(args, "usageType"));
+    appendOption(command, "--room-type", stringValue(args, "roomType"));
+    appendOption(command, "--bookable", args.bookable);
+    appendOption(command, "--arrangeable", args.arrangeable);
     appendOption(command, "--available", args.available);
     appendOption(command, "--free-period", args.freePeriod);
     return command;
   });
 
-  register(server, executor, "ustc_classroom_available", "按指定日期和时间范围查找空闲教室。", {
+  register(server, executor, "ustc_classroom_available", "按单日或日期范围和时间范围查找空闲教室。", {
     ...commonSchema(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     from: z.string().regex(/^\d{2}:\d{2}$/),
     to: z.string().regex(/^\d{2}:\d{2}$/),
     building: z.string().optional(),
     minSeats: z.number().int().min(0).optional(),
+    roomType: z.string().optional(),
+    bookable: z.boolean().optional(),
+    arrangeable: z.boolean().optional(),
   }, (args) => {
     const command = commandArgs(["classroom", "available"], args);
     appendOption(command, "--date", stringValue(args, "date"));
+    appendOption(command, "--from-date", stringValue(args, "fromDate"));
+    appendOption(command, "--to-date", stringValue(args, "toDate"));
     appendOption(command, "--from", stringValue(args, "from"));
     appendOption(command, "--to", stringValue(args, "to"));
     appendOption(command, "--building", stringValue(args, "building"));
     appendOption(command, "--min-seats", numberValue(args, "minSeats"));
+    appendOption(command, "--room-type", stringValue(args, "roomType"));
+    appendOption(command, "--bookable", args.bookable);
+    appendOption(command, "--arrangeable", args.arrangeable);
     return command;
   });
 
@@ -388,14 +407,24 @@ export const registerCatalogTools = (server: McpServer, executor: CliExecutor): 
     return positionals(command, [stringValue(args, "room") ?? ""]);
   });
 
-  register(server, executor, "ustc_classroom_week", "查看给定日期所在周的教室使用情况。", {
+  register(server, executor, "ustc_classroom_week", "查看给定日期所在周的教室使用情况，可按教室汇总。", {
     ...commonSchema(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("周内日期；省略时使用中国标准时间当天。"),
     building: z.string().optional().describe("楼栋代码，可用逗号分隔。"),
+    usageType: z.string().optional().describe("按记录类型过滤，可用逗号分隔。"),
+    roomType: z.string().optional().describe("房间类型代码或名称，可用逗号分隔。"),
+    bookable: z.boolean().optional().describe("只保留网页标记为可借用的教室。"),
+    arrangeable: z.boolean().optional().describe("只保留网页标记为可排课的教室。"),
+    summary: z.boolean().optional().describe("按教室汇总整周使用情况。"),
   }, (args) => {
     const command = commandArgs(["classroom", "week"], args);
     appendOption(command, "--date", stringValue(args, "date"));
     appendOption(command, "--building", stringValue(args, "building"));
+    appendOption(command, "--usage-type", stringValue(args, "usageType"));
+    appendOption(command, "--room-type", stringValue(args, "roomType"));
+    appendOption(command, "--bookable", args.bookable);
+    appendOption(command, "--arrangeable", args.arrangeable);
+    appendOption(command, "--summary", args.summary);
     return command;
   });
 

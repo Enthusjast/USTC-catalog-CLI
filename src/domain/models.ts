@@ -7,6 +7,7 @@ export type ResultMeta = {
   fetchedAt: string;
   dataAsOf?: string | null;
   stale: boolean;
+  unlocatedUsageCount?: number;
 };
 
 export type ResultEnvelope<T> = {
@@ -218,15 +219,22 @@ export type Classroom = {
   floor: number;
   seats: number;
   roomType?: string;
-  canBook?: boolean;
-  canArrange?: boolean;
+  enabled?: boolean;
+  experiment?: boolean;
+  mediaRecord?: boolean;
+  standardExam?: boolean;
+  arrangeSchedule?: boolean;
+  arrangeExam?: boolean;
+  canBorrow?: boolean;
   layout?: number;
 };
 
 export type ClassroomUsage = {
   classroomCode: string;
+  buildingCode?: string;
   date: string;
   usageType: "lesson" | "temporary" | "exam" | "occupancy";
+  rawType?: string;
   courseIds: string[];
   courseName?: string;
   teachers: string[];
@@ -244,6 +252,25 @@ export type ClassroomUsage = {
   allDay: boolean;
   occupied: boolean;
   seal?: boolean;
+};
+
+export type ClassroomWeekSummary = {
+  classroomCode: string;
+  building: string;
+  floor: number;
+  seats: number;
+  roomType: string;
+  roomTypeName: string;
+  enabled: boolean;
+  experiment: boolean;
+  mediaRecord: boolean;
+  standardExam: boolean;
+  canBorrow: boolean;
+  arrangeSchedule: boolean;
+  arrangeExam: boolean;
+  busyDays: number;
+  usageCount: number;
+  days: Array<{ date: string; usages: ClassroomUsage[] }>;
 };
 
 export type ExamRoom = {

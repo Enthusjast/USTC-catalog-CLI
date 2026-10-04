@@ -8,7 +8,7 @@ import { createServices, type Services } from "./application/services.js";
 import { CliError } from "./domain/errors.js";
 import type { FreePeriod, LessonFilterOption, ProgramModule, QueryOptions, ResultMeta } from "./domain/models.js";
 import { emitMessage, emitResult } from "./presentation/output.js";
-import { serializeIcalendar, lessonCalendarEvents, examCalendarEvents } from "./presentation/ical.js";
+import { serializeIcalendar, lessonCalendarEvents, examCalendarEvents, classroomCalendarEvents } from "./presentation/ical.js";
 import { buildLessonConflictReport } from "./application/lesson-conflicts.js";
 import { PresetStore } from "./infrastructure/config/presets.js";
 import { pruneSnapshots, prefetchSnapshots } from "./application/cache-maintenance.js";
@@ -19,6 +19,7 @@ import { CACHE_RESOURCE_NAMES, type LessonFilter } from "./domain/query.js";
 import { parseLessonSpanFilter, parseWeekNumbers } from "./domain/schedule.js";
 import {
   classroomRows,
+  classroomWeekSummaryRows,
   courseDetailRows,
   courseRows,
   examRows,
@@ -211,6 +212,13 @@ const buildingFilter = (value?: string): string | undefined => {
   return buildings.join(",");
 };
 
+const classroomFilterValues = (value?: string): string[] | undefined => {
+  if (value === undefined) return undefined;
+  const values = value.split(",").map((item) => item.trim()).filter(Boolean);
+  if (values.length === 0) throw new CliError("ARGUMENT_ERROR", "筛选值不能为空。");
+  return values;
+};
+
 const cacheResource = (value?: string): string | undefined => {
   if (value === undefined) return undefined;
   if (!(CACHE_RESOURCE_NAMES as readonly string[]).includes(value)) {
@@ -289,6 +297,9 @@ const emitCalendarOutput = (
     process.stderr.write(`${text}，抓取时间：${meta.fetchedAt}${meta.dataAsOf ? `，数据时间：${meta.dataAsOf}` : ""}\n`);
   }
   if (!quiet && result.skipped > 0) process.stderr.write(`提示：${result.skipped} 条记录因缺少可解析的日期或时间，未写入日历。\n`);
+  if (!quiet && (meta?.unlocatedUsageCount ?? 0) > 0) {
+    process.stderr.write(`提示：公开课表中有 ${meta?.unlocatedUsageCount} 条使用记录无法关联到网页教室目录，未写入日历。\n`);
+  }
 }
 
 const confirmDestructiveAction = async (options: QueryOptions, yes: boolean, target: string): Promise<void> => {
@@ -322,7 +333,7 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
     .version(CLI_VERSION_TEXT, "-V, --version", "显示版本信息")
     .option("--json", "输出规范化 JSON")
     .option("--csv", "输出规范化 CSV")
-    .option("--ics", "输出 iCalendar 日历，仅适用于教学班与考试列表")
+    .option("--ics", "输出 iCalendar 日历，适用于教学班、考试或教室使用记录")
     .option("--offline", "只读取缓存")
     .option("--no-cache", "跳过已有缓存并强制请求")
     .option("--cache-dir <path>", "覆盖 SQLite 缓存目录")
@@ -594,6 +605,10 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
     .option("--date <YYYY-MM-DD>", "日期")
     .option("--building <code>", "楼栋代码")
     .option("--keyword <text>", "课程、教师或教室关键词")
+    .option("--usage-type <types>", "使用记录类型，可逗号分隔；如会议、班会、讲座、课程、临时借用")
+    .option("--room-type <types>", "房间类型代码或名称，可逗号分隔")
+    .option("--bookable", "只显示网页标记为可借用的教室")
+    .option("--arrangeable", "只显示网页标记为可排课的教室")
     .option("--available", "只显示无占用教室")
     .option("--free-period <n>", "只显示指定节次空闲")
     .action(async (_opts: unknown, command: Command) => {
@@ -605,11 +620,19 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
         {
           building: buildingFilter(opts.building),
           keyword: opts.keyword,
+          usageType: classroomFilterValues(opts.usageType),
+          roomType: classroomFilterValues(opts.roomType),
+          bookable: Boolean(opts.bookable),
+          arrangeable: Boolean(opts.arrangeable),
           availableOnly: Boolean(opts.available),
           freePeriod,
         },
         accessOptions(options),
       );
+      if (options.ics) {
+        emitCalendarOutput("教室使用记录", classroomCalendarEvents(result.value.flatMap((room) => room.usages)), result.meta, options.offline, options.quiet);
+        return;
+      }
       emitResult(result, options, 25, { tableRows: classroomRows(result.value) });
     });
   classroom.command("available")
@@ -617,8 +640,13 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
     .requiredOption("--from <HH:MM>", "空闲时段开始时间")
     .requiredOption("--to <HH:MM>", "空闲时段结束时间")
     .option("--date <YYYY-MM-DD>", "日期")
+    .option("--from-date <YYYY-MM-DD>", "多日查询开始日期（含）")
+    .option("--to-date <YYYY-MM-DD>", "多日查询结束日期（含）")
     .option("--building <codes>", "楼栋代码，可用逗号分隔")
     .option("--min-seats <n>", "最少座位数")
+    .option("--room-type <types>", "房间类型代码或名称，可逗号分隔")
+    .option("--bookable", "只查网页标记为可借用的教室")
+    .option("--arrangeable", "只查网页标记为可排课的教室")
     .action(async (_opts: unknown, command: Command) => {
       const options = cliOptions(command);
       const opts = command.opts();
@@ -626,9 +654,31 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
       const to = parseClock(opts.to, "结束时间", true);
       if (to <= from) throw new CliError("ARGUMENT_ERROR", "结束时间必须晚于开始时间；跨午夜查询请拆成两条命令。");
       const minSeats = opts.minSeats === undefined ? undefined : parsePositiveInteger(String(opts.minSeats));
+      const hasDateRange = opts.fromDate !== undefined || opts.toDate !== undefined;
+      if (hasDateRange && (opts.fromDate === undefined || opts.toDate === undefined || opts.date !== undefined)) {
+        throw new CliError("ARGUMENT_ERROR", "多日查询必须同时提供 --from-date 和 --to-date，且不能与 --date 同用。");
+      }
+      const filters = {
+        building: buildingFilter(opts.building),
+        roomType: classroomFilterValues(opts.roomType),
+        bookable: Boolean(opts.bookable),
+        arrangeable: Boolean(opts.arrangeable),
+        minSeats,
+        availableBetween: { from, to },
+      };
+      if (hasDateRange) {
+        const result = await services.classroom.availableAcrossDates(
+          validDate(String(opts.fromDate), "开始日期"),
+          validDate(String(opts.toDate), "结束日期"),
+          filters,
+          accessOptions(options),
+        );
+        emitResult(result, options, 25, { tableRows: classroomRows(result.value) });
+        return;
+      }
       const result = await services.classroom.list(
         validDate(dateOrToday(opts.date)),
-        { building: buildingFilter(opts.building), availableBetween: { from, to }, minSeats },
+        filters,
         accessOptions(options),
       );
       emitResult(result, options, 25, { tableRows: classroomRows(result.value) });
@@ -643,20 +693,47 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
         room,
         accessOptions(options),
       );
+      if (options.ics) {
+        emitCalendarOutput("教室使用记录", classroomCalendarEvents(result.value.usages), result.meta, options.offline, options.quiet);
+        return;
+      }
       emitResult(result, options, 25, { tableRows: classroomRows([result.value]) });
     });
   classroom
     .command("week")
     .option("--date <YYYY-MM-DD>", "所在周的日期")
     .option("--building <codes>", "逗号分隔的楼栋代码")
+    .option("--usage-type <types>", "使用记录类型，可逗号分隔")
+    .option("--room-type <types>", "房间类型代码或名称，可逗号分隔")
+    .option("--bookable", "只显示网页标记为可借用的教室")
+    .option("--arrangeable", "只显示网页标记为可排课的教室")
+    .option("--summary", "按教室汇总整周使用情况")
     .action(async (_opts: unknown, command: Command) => {
       const options = cliOptions(command);
       const opts = command.opts();
-      const result = await services.classroom.week(
-        validDate(dateOrToday(opts.date), "周日期"),
-        { building: buildingFilter(opts.building) },
-        accessOptions(options),
-      );
+      const date = validDate(dateOrToday(opts.date), "周日期");
+      const filters = {
+        building: buildingFilter(opts.building),
+        usageType: classroomFilterValues(opts.usageType),
+        roomType: classroomFilterValues(opts.roomType),
+        bookable: Boolean(opts.bookable),
+        arrangeable: Boolean(opts.arrangeable),
+      };
+      if (opts.summary) {
+        const summary = await services.classroom.weekSummary(date, filters, accessOptions(options));
+        if (options.ics) {
+          const usages = summary.value.flatMap((room) => room.days.flatMap((day) => day.usages));
+          emitCalendarOutput("本周教室使用记录", classroomCalendarEvents(usages), summary.meta, options.offline, options.quiet);
+          return;
+        }
+        emitResult(summary, options, 25, { tableRows: classroomWeekSummaryRows(summary.value) });
+        return;
+      }
+      const result = await services.classroom.week(date, filters, accessOptions(options));
+      if (options.ics) {
+        emitCalendarOutput("本周教室使用记录", classroomCalendarEvents(result.value.flatMap((room) => room.usages)), result.meta, options.offline, options.quiet);
+        return;
+      }
       emitResult(result, options, 25, { tableRows: classroomRows(result.value) });
     });
 
@@ -934,10 +1011,11 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
   program.hook("preAction", (_root, actionCommand) => {
     if (!program.opts().ics) return;
     const parent = actionCommand.parent;
-    const isCalendarList = actionCommand.name() === "list" && parent && ["lesson", "exam"].includes(parent.name());
+    const isCalendarList = actionCommand.name() === "list" && parent && ["lesson", "exam", "classroom"].includes(parent.name());
+    const isClassroomDetail = parent?.name() === "classroom" && ["show", "week"].includes(actionCommand.name());
     const isPresetRun = actionCommand.name() === "run" && parent?.name() === "preset";
-    if (!isCalendarList && !isPresetRun) {
-      throw new CliError("ARGUMENT_ERROR", "--ics 只适用于 catalog lesson list 和 catalog exam list。");
+    if (!isCalendarList && !isClassroomDetail && !isPresetRun) {
+      throw new CliError("ARGUMENT_ERROR", "--ics 只适用于教学班、考试列表及教室使用记录查询。");
     }
   });
 

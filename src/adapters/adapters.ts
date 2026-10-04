@@ -835,8 +835,10 @@ export const normalizeTimetable = (input: unknown, date: string): ClassroomUsage
         : splitText(raw.adminclasseNames ?? raw.classes);
       result.push({
         classroomCode: code,
+        buildingCode: raw.buildingCode == null ? undefined : String(raw.buildingCode),
         date,
         usageType: usageTypeValue,
+        rawType: stringValue(raw.type, "") || undefined,
         courseIds: courseId ? courseId.split(",").map((item) => item.trim()) : [],
         courseName: isMakeupExam ? stringValue(raw.nameZh) : raw.courseName ?? raw.nameZh ?? courseNames.join(","),
         teachers: isMakeupExam ? [...new Set(makeupTeachers)] : [...new Set([...teacherValues, ...lessonTeachers])],
@@ -894,6 +896,7 @@ export const mergeClassroomUsages = (usages: ClassroomUsage[]): ClassroomUsage[]
     const current = grouped.get(usage.classroomCode) ?? [];
     const match = current.find((item) =>
       item.usageType === usage.usageType &&
+      item.rawType === usage.rawType &&
       item.courseName === usage.courseName &&
       (sameCourse(item, usage) ||
         (item.usageType === "temporary" && usage.usageType === "temporary" &&

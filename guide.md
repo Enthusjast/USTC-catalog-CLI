@@ -121,7 +121,7 @@ catalog preset list|save|run|delete
 | --- | --- |
 | `--json` | 输出规范化 JSON |
 | `--csv` | 输出 UTF-8 CSV，带 BOM |
-| `--ics` | 将教学班或考试列表导出为 iCalendar；与 JSON、CSV 互斥 |
+| `--ics` | 将教学班、考试列表或教室使用记录导出为 iCalendar；与 JSON、CSV 互斥 |
 | `--offline` | 只读取本地缓存，不访问网络 |
 | `--no-cache` | 不读取已有快照，强制请求；成功后仍写入缓存 |
 | `--cache-dir <path>` | 指定 SQLite 缓存目录 |
@@ -390,14 +390,15 @@ CSV 行使用人类可读的扁平字段，而不是 JSON 的全部嵌套字段�
 
 ### 6.4 iCalendar
 
-教学班和考试列表可导出 `.ics`：
+教学班、考试列表以及教室 `list`、`show`、`week` 查询可导出 `.ics`：
 
 ```bash
 catalog --ics lesson list --semester 461 --course 数学 > math.ics
 catalog --ics exam list --semester 461 > exams.ics
+catalog --ics classroom list --date 2026-10-04 > classrooms.ics
 ```
 
-教学班的周次和节次按学期开始日期展开为亚洲/上海时区活动；考试使用 API 日期和起止时间，缺少考试时间的记录会作为整日活动导出。日期或时间非法、或教学时间无法解析的记录会跳过并在 stderr 提示数量。若活动数超过 20,000 条，导出会报错并要求缩小筛选范围。ICS 只包含公开课程和考试信息，不包含个人课表。
+教学班的周次和节次按学期开始日期展开为亚洲/上海时区活动；考试和教室使用记录使用 API 日期与起止时间。日期或时间非法、或教学时间无法解析的记录会跳过并在 stderr 提示数量。若活动数超过 20,000 条，导出会报错并要求缩小筛选范围。教室 iCalendar 只导出公开课表已有的使用事件，不把推算空闲导出为预约；`classroom available` 不支持 `--ics`。
 
 ## 7. 课程目录
 
@@ -847,6 +848,10 @@ catalog classroom list [options]
 | `--date <YYYY-MM-DD>` | 日期，默认使用中国标准时间当天 |
 | `--building <code[,code...]>` | 一个或多个楼栋代码 |
 | `--keyword <text>` | 房间号、课程编号、课程名、教师、申请人或主办方关键词 |
+| `--usage-type <type[,type...]>` | 按网页原始记录类型（如“会议”“班会”“讲座”）或“课程”“临时借用”“考试”“占用”筛选；只输出匹配类型的使用记录 |
+| `--room-type <code-or-name[,..]>` | 按房间类型代码或中文名称筛选，例如 `2` 或 `多媒体教室` |
+| `--bookable` | 只保留网页标记为可借用的教室 |
+| `--arrangeable` | 只保留网页标记为可排课的教室 |
 | `--available` | 只保留当天没有使用记录的房间 |
 | `--free-period <n|noon|evening>` | 只保留指定教学节次空闲的房间；0 表示全天空闲 |
 
@@ -857,6 +862,9 @@ catalog classroom list --date 2026-08-26
 catalog classroom list --date 2026-08-26 --building 1
 catalog classroom list --date 2026-08-26 --building 1,2,3
 catalog classroom list --date 2026-08-26 --keyword MATH1001
+catalog classroom list --date 2026-08-26 --usage-type 会议,讲座
+catalog classroom list --date 2026-08-26 --room-type 多媒体教室 --bookable
+catalog classroom list --date 2026-08-26 --arrangeable
 catalog classroom list --date 2026-08-26 --available
 catalog classroom list --date 2026-08-26 --free-period 3
 catalog classroom list --date 2026-08-26 --free-period noon
@@ -869,11 +877,21 @@ catalog classroom list --date 2026-08-26 --free-period evening
 catalog classroom buildings
 ```
 
+网页目录中常见的房间类型代码包括：`2` 多媒体教室、`5` 研讨室、`9` 智慧型研讨室、`10` 报告厅、`12` 绘画教室、`13` 摄影教室、`14` 钢琴教室和 `15` 舞蹈教室。也可直接用中文名称筛选。房间目录按网页条件同步：只包含已启用且可借用或可排课的可见教室；目录随 CLI 版本更新，并非运行时 API。
+
 查找一段连续的空闲时间，并可按最小座位数筛选：
 
 ```bash
 catalog classroom available --date 2026-08-26 --from 14:00 --to 16:00 --building 1,2 --min-seats 30
 ```
+
+按多日范围查询同一时段每天都空闲的教室：
+
+```bash
+catalog classroom available --from-date 2026-08-26 --to-date 2026-09-01 --from 14:00 --to 16:00 --building 1,2 --bookable --min-seats 30
+```
+
+`--from-date` 和 `--to-date` 必须同时提供，日期范围含首尾，最多 31 天，且不能与 `--date` 同用。返回结果是这些日期每天都没有与 `[开始, 结束)` 重叠的公开使用记录的教室。房间目录与空闲记录只是参考信息，不代表教室可预约或已获得使用许可；课表中缺失或未定位的记录也可能影响判断。跨午夜仍需拆分查询。
 
 时间区间按 `[开始, 结束)` 判断，结束时间必须晚于开始时间。跨午夜时分成两次查询。区间使用课表 API 的记录时间，不会将节次边界当成精确空闲时间。
 
@@ -885,7 +903,7 @@ catalog classroom available --date 2026-08-26 --from 14:00 --to 16:00 --building
 4123 表示 41、42、43 的聚合楼栋
 ```
 
-房间元数据来自 CLI 内置静态房间表，日期使用记录来自课表接口。关键词和空闲筛选在已取得课表后本地执行。
+房间元数据和可借用/可排课等属性来自 CLI 内置静态网页目录；每个日期的使用记录来自 `timetable-public-all/{date}` 接口。房间属性、关键词、记录类型和空闲条件都在取得课表后本地筛选。未提供教室号或楼栋号的 API 记录不会归入房间结果：表格/CSV 会在 stderr 提示数量，JSON 和 MCP 的 `meta.unlocatedUsageCount` 会包含计数。
 
 ### 11.2 classroom show
 
@@ -904,12 +922,18 @@ catalog --json classroom show 1101 --date 2026-08-23
 
 返回指定房间的楼栋、房间类型、楼层、座位数和当天完整使用记录。
 
+可将房间使用记录导出为 iCalendar；只导出接口中有可解析日期和起止时间的记录：
+
+```bash
+catalog --ics classroom show 2303 --date 2026-08-26 > room-2303.ics
+```
+
 ### 11.3 classroom week
 
 语法：
 
 ```bash
-catalog classroom week [--date <YYYY-MM-DD>] [--building <code[,code...]>]
+catalog classroom week [--date <YYYY-MM-DD>] [--building <code[,code...]>] [--usage-type <types>] [--room-type <types>] [--bookable] [--arrangeable] [--summary]
 ```
 
 示例：
@@ -917,6 +941,8 @@ catalog classroom week [--date <YYYY-MM-DD>] [--building <code[,code...]>]
 ```bash
 catalog classroom week --date 2026-08-26
 catalog classroom week --date 2026-08-26 --building 1,2,3
+catalog classroom week --date 2026-08-26 --summary
+catalog classroom week --date 2026-08-26 --usage-type 会议,讲座 --bookable --summary
 ```
 
 周视图以给定日期所在周的星期日为起点，依次读取 7 天：
@@ -930,6 +956,17 @@ JSON 每条房间记录额外包含 date。周请求的 meta.dataAsOf 是日期�
 ```text
 2026-08-23 至 2026-08-29
 ```
+
+默认周查询仍返回逐日房间记录。`--summary` 改为每间教室一条汇总，包含繁忙天数、使用记录数及每天记录；表格和 CSV 显示紧凑周摘要，JSON 保留按日嵌套的明细结构。
+
+日历导出适用于 `classroom list`、`show` 和 `week`：
+
+```bash
+catalog --ics classroom list --date 2026-08-26 > classrooms.ics
+catalog --ics classroom week --date 2026-08-26 > classroom-week.ics
+```
+
+教室 iCalendar 只表示公开课表中已有的使用事件；空闲查询不支持 `--ics`，以免把推算的空闲时段误表达成预约。
 
 ## 12. 考试查询
 
@@ -1389,10 +1426,10 @@ MCP 共提供 27 个只读工具：
 | `ustc_lesson_options` | `semester?: string\|integer` 及可传入的教学班筛选项；返回学历、课堂类型、课程范畴分类、院系、节次的选项和值数量 |
 | `ustc_lesson_show` | `codes: string[]`；`semester: string\|integer` |
 | `ustc_lesson_conflicts` | `codes: string[]`（至少两个）；`semester: string\|integer` |
-| `ustc_classroom_list` | `date?: YYYY-MM-DD`、`building?: string`、`keyword?: string`、`available?: boolean`、`freePeriod?: 0..13\|noon\|evening` |
-| `ustc_classroom_available` | `date?: YYYY-MM-DD`、`from: HH:MM`、`to: HH:MM`、`building?: string`、`minSeats?: integer` |
+| `ustc_classroom_list` | `date?: YYYY-MM-DD`、`building?: string`、`keyword?: string`、`usageType?: string`、`roomType?: string`、`bookable?: boolean`、`arrangeable?: boolean`、`available?: boolean`、`freePeriod?: 0..13\|noon\|evening` |
+| `ustc_classroom_available` | `date?: YYYY-MM-DD` 或 `fromDate?: YYYY-MM-DD` + `toDate?: YYYY-MM-DD`、`from: HH:MM`、`to: HH:MM`、`building?: string`、`minSeats?: integer`、`roomType?: string`、`bookable?: boolean`、`arrangeable?: boolean` |
 | `ustc_classroom_show` | `room: string`；`date?: YYYY-MM-DD` |
-| `ustc_classroom_week` | `date?: YYYY-MM-DD`；`building?: string` |
+| `ustc_classroom_week` | `date?: YYYY-MM-DD`、`building?: string`、`usageType?: string`、`roomType?: string`、`bookable?: boolean`、`arrangeable?: boolean`、`summary?: boolean` |
 | `ustc_exam_list` | `semester?: string\|integer`、`type?: string`、`education?: string`、`department?: string`、`grade?: string`、`building?: string`、`date?: YYYY-MM-DD`、`course?: string`、`teacher?: string`、`location?: string`、`className?: string`、`span?: morning\|afternoon\|evening`、`sort?: course\|department\|teacher\|location\|date\|time\|class`、`desc?: boolean` |
 | `ustc_exam_show` | `id: integer`；`semester: string\|integer` |
 | `ustc_substitute_list` | `course?: string`、`mode?: interchangeable\|straight`、`multiple?: boolean`、`single?: boolean` |
@@ -1402,6 +1439,8 @@ MCP 共提供 27 个只读工具：
 ### 20.5 返回结构
 
 成功时，MCP 工具同时返回 `structuredContent` 和文本形式的 JSON。两者内容相同：
+
+教室查询的 `meta` 还可能包含 `unlocatedUsageCount`，表示本次课表中无法关联到网页可见教室目录的记录数；房间数据仍只包含可关联的教室。
 
 ```json
 {
