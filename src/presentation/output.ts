@@ -17,6 +17,7 @@ export type OutputOptions = {
 
 export type OutputPayload = {
   tableRows?: DisplayRow[];
+  csvRows?: DisplayRow[];
   tableTotal?: number;
 };
 
@@ -102,11 +103,12 @@ export const emitResult = <T>(
     return;
   }
 
-  const rows = payload.tableRows
-    ? sliceRows(payload.tableRows, options, pageSize)
+  const customRows = options.format === "csv" ? payload.csvRows ?? payload.tableRows : payload.tableRows;
+  const rows = customRows
+    ? sliceRows(customRows, options, pageSize)
     : normalizeRows(selected);
   if (options.format === "csv") {
-    const columns = columnsFor(payload.tableRows ?? rows);
+    const columns = columnsFor(customRows ?? rows);
     process.stdout.write(stringify(rows, { header: true, columns, bom: true }));
     return;
   }

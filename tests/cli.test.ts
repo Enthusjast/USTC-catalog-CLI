@@ -116,6 +116,91 @@ describe("CLI contract", () => {
     }
   });
 
+  it("derives lesson options from cached data and applies exact spans plus structured schedule filters", async () => {
+    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "catalog-cli-lesson-options-"));
+    const { program, services } = buildCli({ cacheDir });
+    services.repository.write("semesters", "all", "fixture", [{
+      id: 461,
+      nameZh: "2026 年秋季学期",
+      code: "20261",
+      start: "2026-08-30",
+      end: "2027-01-15",
+      isLast: true,
+    }]);
+    services.repository.write("lessons", "461", "fixture", [
+      {
+        id: 1,
+        code: "MATH1001.01",
+        course: { code: "MATH1001", cn: "数学分析" },
+        openDepartment: { code: "001", cn: "数学科学学院" },
+        education: { cn: "本科" },
+        classType: { cn: "计划内与自由选修" },
+        courseType: { cn: "理论课" },
+        courseClassify: { cn: "安全教育-必修" },
+        courseCategory: { cn: "本科计划内课程" },
+        courseGradation: { cn: "专业基础" },
+        teacherAssignmentList: [{ cn: "张三" }],
+        adminClasses: [{ cn: "26数学" }],
+        dateTimePlaceText: "5401: 1(3,4)",
+        dateTimePlacePersonText: { cn: "1~5,7~10周 5401 :1(3,4) 张三" },
+        teachLang: { cn: "中文" },
+        examMode: { cn: "笔试" },
+        graduateAndPostgraduate: true,
+        stdCount: 30,
+        limitCount: 40,
+      },
+      {
+        id: 2,
+        code: "MATH1002.01",
+        course: { code: "MATH1002", cn: "数学分析续论" },
+        openDepartment: { code: "001", cn: "数学科学学院" },
+        education: { cn: "本科" },
+        classType: { cn: "素能拓展" },
+        courseType: { cn: "理论课" },
+        courseGradation: { cn: "自由选修" },
+        teacherAssignmentList: [{ cn: "李四" }],
+        dateTimePlaceText: "5401: 1(3,4,5)",
+        dateTimePlacePersonText: { cn: "1~5周 5401 :1(3,4,5) 李四" },
+      },
+    ]);
+    program.exitOverride();
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    try {
+      await program.parseAsync([
+        "--json", "--offline", "lesson", "options", "--semester", "461", "--class-type", "计划内与自由选修",
+      ], { from: "user" });
+      const options = JSON.parse(String(stdout.mock.calls.at(-1)?.[0])).data;
+      expect(options.filter((item: { dimension: string }) => item.dimension === "classType").map((item: { value: string }) => item.value))
+        .toEqual(["计划内与自由选修", "素能拓展"]);
+      expect(options.filter((item: { dimension: string }) => item.dimension === "span"))
+        .toEqual([{ dimension: "span", value: "1(3,4)", label: "1(3,4)", count: 1 }]);
+
+      await program.parseAsync([
+        "--json", "--offline", "lesson", "list", "--semester", "461", "--span", "1(3,4)",
+      ], { from: "user" });
+      expect(JSON.parse(String(stdout.mock.calls.at(-1)?.[0])).data.map((item: { code: string }) => item.code))
+        .toEqual(["MATH1001.01"]);
+
+      await program.parseAsync([
+        "--json", "--offline", "lesson", "list", "--semester", "461", "--class-type", "计划内与自由选修",
+        "--weekday", "1", "--period", "4", "--week", "1-5,7-10",
+      ], { from: "user" });
+      expect(JSON.parse(String(stdout.mock.calls.at(-1)?.[0])).data.map((item: { code: string }) => item.code))
+        .toEqual(["MATH1001.01"]);
+
+      await program.parseAsync([
+        "--csv", "--offline", "lesson", "list", "--semester", "461", "--limit", "1",
+      ], { from: "user" });
+      const csv = String(stdout.mock.calls.at(-1)?.[0]);
+      expect(csv).toContain("课堂类型,课程范畴分类,课程类型,授课语言,考核方式,本研同堂");
+      expect(csv).toContain("计划内与自由选修,安全教育-必修,理论课,中文,笔试,是");
+      expect(csv).not.toContain("素能拓展");
+    } finally {
+      stdout.mockRestore();
+      services.repository.close();
+    }
+  });
+
   it("finds a room with an exact cached free time window", async () => {
     const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "catalog-cli-room-window-"));
     const { program, services } = buildCli({ cacheDir });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { parseClock, parseFreePeriod, validDate } from "../src/cli.js";
 
 describe("CLI argument validation", () => {
@@ -29,6 +29,23 @@ describe("CLI argument validation", () => {
     expect(() => parseClock("24:01", "结束时间", true)).toThrow();
     await expect(program.parseAsync(["classroom", "available", "--from", "15:00", "--to", "14:00"], { from: "user" }))
       .rejects.toMatchObject({ code: "ARGUMENT_ERROR" });
+    services.repository.close();
+  });
+
+  it("validates lesson span and structured schedule filters before data access", async () => {
+    const { buildCli } = await import("../src/cli.js");
+    const { program, services } = buildCli({ cacheDir: "/tmp/catalog-lesson-filter-validation" });
+    program.exitOverride();
+    const request = vi.spyOn(services.api, "lessons");
+    await expect(program.parseAsync(["lesson", "list", "--semester", "461", "--span", "1(14)"], { from: "user" }))
+      .rejects.toMatchObject({ code: "ARGUMENT_ERROR" });
+    await expect(program.parseAsync(["lesson", "list", "--semester", "461", "--weekday", "8"], { from: "user" }))
+      .rejects.toMatchObject({ code: "ARGUMENT_ERROR" });
+    await expect(program.parseAsync(["lesson", "list", "--semester", "461", "--period", "14"], { from: "user" }))
+      .rejects.toMatchObject({ code: "ARGUMENT_ERROR" });
+    await expect(program.parseAsync(["lesson", "list", "--semester", "461", "--week", "5-3"], { from: "user" }))
+      .rejects.toMatchObject({ code: "ARGUMENT_ERROR" });
+    expect(request).not.toHaveBeenCalled();
     services.repository.close();
   });
 });

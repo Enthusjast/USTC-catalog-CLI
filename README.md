@@ -81,6 +81,7 @@ catalog --ics lesson list --semester 461 --course 数学 > math.ics
 | `catalog program show <计划ID>` | 查看培养方案及课程模块 | `catalog program show 3430` |
 | `catalog program module <模块ID>` | 查看培养方案模块 | `catalog program module 10001 --courses` |
 | `catalog lesson list` | 查询全校教学班 | `catalog lesson list --course 数学` |
+| `catalog lesson options` | 查看学期教学班筛选值与数量 | `catalog lesson options --semester 461` |
 | `catalog lesson conflicts <课堂号...>` | 检查教学班的可能时间冲突 | `catalog lesson conflicts MATH1001.01 PHYS1001.01 --semester 461` |
 | `catalog lesson show <课堂号...>` | 查看教学班和课程详情 | `catalog lesson show MATH1001.01 --semester 461` |
 | `catalog classroom list` | 查看指定日期的教室使用情况 | `catalog classroom list --available` |
@@ -133,9 +134,11 @@ CSV 使用 UTF-8 BOM，适合 Excel 或其他表格软件：
 catalog --csv lesson list --department 001 > lessons.csv
 ```
 
+教学班 CSV 包含网页 Excel 导出的主要字段，如课堂类型、课程范畴分类、课程类型、授课语言、考核方式、本研同堂和上课班级。
+
 ## MCP
 
-本包同时提供本地 stdio MCP 服务。MCP 客户端可以调用课程分类、培养方案、教学班冲突、楼栋发现、时段空闲教室、考试、替代课程、学期和院系等只读查询；返回统一的 `meta/data` JSON，不返回终端表格，也不提供缓存清理、预设管理、登录或选课操作。
+本包同时提供本地 stdio MCP 服务。MCP 客户端可以调用课程分类、培养方案、教学班筛选选项和冲突检查、楼栋发现、时段空闲教室、考试、替代课程、学期和院系等只读查询；返回统一的 `meta/data` JSON，不返回终端表格，也不提供缓存清理、预设管理、登录或选课操作。
 
 全局安装后，在 MCP 客户端配置：
 

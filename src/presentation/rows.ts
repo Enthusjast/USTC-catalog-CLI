@@ -84,10 +84,33 @@ export const lessonRows = (items: Lesson[]): DisplayRow[] =>
     学分: item.credits ?? "",
     学时: item.hours ?? "",
     学历: item.education ?? "",
-    课堂类型: item.courseType ?? "",
-    课程范畴: item.courseClassify ?? item.courseCategory ?? "",
+    课堂类型: item.classType ?? "",
+    课程范畴分类: item.courseClassify ?? "",
+    课程类型: item.courseType ?? "",
+    本研同堂: item.graduateAndPostgraduate ? "是" : "否",
     选课人数: item.studentCount ?? "",
     限选人数: item.limitCount ?? "",
+  }));
+
+export const lessonExportRows = (items: Lesson[]): DisplayRow[] =>
+  items.map((item) => ({
+    课堂号: item.code,
+    课程名: item.courseName,
+    开课单位: `${item.departmentCode ?? ""} ${item.departmentName ?? ""}`.trim(),
+    授课教师: item.teachers.map((teacher) => teacher.nameZh).join("、"),
+    时间地点: item.spans.length > 0 ? item.spans.map((span) => span.text).join("\n") : item.scheduleText,
+    学分: item.credits ?? "",
+    学时: item.hours ?? "",
+    学历: item.courseGradation === "本研贯通" ? "本研贯通" : item.education ?? "",
+    课堂类型: item.classType ?? "",
+    课程范畴分类: item.courseClassify ?? "",
+    课程类型: item.courseType ?? "",
+    授课语言: item.teachLanguage ?? "",
+    考核方式: item.examMode ?? "",
+    本研同堂: item.graduateAndPostgraduate ? "是" : "否",
+    选课人数: item.studentCount ?? "",
+    限选人数: item.limitCount ?? "",
+    上课班级: item.classes.map((studentClass) => studentClass.nameZh).join("、"),
   }));
 
 export const lessonDetailRows = (items: LessonDetail[]): DisplayRow[] =>
@@ -98,6 +121,9 @@ export const lessonDetailRows = (items: LessonDetail[]): DisplayRow[] =>
     开课单位: `${item.lesson.departmentCode ?? ""} ${item.lesson.departmentName ?? ""}`.trim(),
     授课教师: item.lesson.teachers.map((teacher) => teacher.nameZh).join("、"),
     上课班级: item.lesson.classes.map((studentClass) => studentClass.nameZh).join("、"),
+    课堂类型: item.lesson.classType ?? "",
+    课程范畴分类: item.lesson.courseClassify ?? "",
+    课程类型: item.lesson.courseType ?? "",
     校区: item.lesson.campus ?? "",
     地点: item.lesson.locations.map((location) => location.text).join("；"),
     上课时间: item.lesson.spans.map((span) => span.text).join("；"),

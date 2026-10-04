@@ -24,6 +24,7 @@ export const MCP_TOOL_NAMES = [
   "ustc_program_show",
   "ustc_program_module",
   "ustc_lesson_list",
+  "ustc_lesson_options",
   "ustc_lesson_show",
   "ustc_lesson_conflicts",
   "ustc_classroom_buildings",
@@ -256,27 +257,66 @@ export const registerCatalogTools = (server: McpServer, executor: CliExecutor): 
     semester: z.union([z.string(), z.number().int()]).optional().describe("学期 ID、学期代码或中文名称；省略时使用默认学期。"),
     department: z.string().optional().describe("开课单位代码。"),
     education: z.string().optional().describe("学历层次。"),
+    classType: z.string().optional().describe("网页筛选器中的课堂类型，对应 API classType。"),
+    courseType: z.string().optional().describe("课程类型，对应 API courseType；这是 CLI 额外筛选。"),
+    courseClassify: z.string().optional().describe("课程范畴分类，对应 API courseClassify。"),
     course: z.string().optional().describe("课程名或课堂号。"),
     teacher: z.string().optional().describe("教师。"),
     location: z.string().optional().describe("校区或教室。"),
-    span: z.string().optional().describe("规范化上课时间片。"),
-    courseType: z.string().optional().describe("课堂类型。"),
-    courseClassify: z.string().optional().describe("课程范畴。"),
-    sort: z.enum(["code", "course", "department", "teacher", "location", "students"]).optional(),
+    span: z.string().optional().describe("精确匹配网页节次，例如 1(3,4)。"),
+    weekday: z.number().int().min(1).max(7).optional().describe("星期几；1 为星期一，7 为星期日。"),
+    period: z.number().int().min(1).max(13).optional().describe("只要该上课跨度包含此节次即可。"),
+    week: z.string().optional().describe("周次或范围，例如 3、1-5、1-5,7-10。"),
+    sort: z.enum(["code", "course", "department", "department-code", "teacher", "location", "students"]).optional(),
     desc: z.boolean().optional().describe("是否降序。"),
   }, (args) => {
     const command = commandArgs(["lesson", "list"], args);
     appendOption(command, "--semester", stringValue(args, "semester"));
     appendOption(command, "--department", stringValue(args, "department"));
     appendOption(command, "--education", stringValue(args, "education"));
+    appendOption(command, "--class-type", stringValue(args, "classType"));
+    appendOption(command, "--course-type", stringValue(args, "courseType"));
+    appendOption(command, "--course-classify", stringValue(args, "courseClassify"));
     appendOption(command, "--course", stringValue(args, "course"));
     appendOption(command, "--teacher", stringValue(args, "teacher"));
     appendOption(command, "--location", stringValue(args, "location"));
     appendOption(command, "--span", stringValue(args, "span"));
-    appendOption(command, "--course-type", stringValue(args, "courseType"));
-    appendOption(command, "--course-classify", stringValue(args, "courseClassify"));
+    appendOption(command, "--weekday", numberValue(args, "weekday"));
+    appendOption(command, "--period", numberValue(args, "period"));
+    appendOption(command, "--week", stringValue(args, "week"));
     appendOption(command, "--sort", stringValue(args, "sort"));
     appendOption(command, "--desc", args.desc);
+    return command;
+  });
+
+  register(server, executor, "ustc_lesson_options", "根据学期公开教学班数据列出筛选项和班次数，可用其他筛选条件收窄节次列表。", {
+    ...commonSchema(),
+    semester: z.union([z.string(), z.number().int()]).optional().describe("学期 ID、学期代码或中文名称；省略时使用默认学期。"),
+    department: z.string().optional(),
+    education: z.string().optional(),
+    classType: z.string().optional().describe("网页筛选器中的课堂类型。"),
+    courseType: z.string().optional().describe("课程类型的 CLI 额外筛选。"),
+    courseClassify: z.string().optional().describe("课程范畴分类。"),
+    course: z.string().optional(),
+    teacher: z.string().optional(),
+    location: z.string().optional(),
+    weekday: z.number().int().min(1).max(7).optional(),
+    period: z.number().int().min(1).max(13).optional(),
+    week: z.string().optional(),
+  }, (args) => {
+    const command = commandArgs(["lesson", "options"], args);
+    appendOption(command, "--semester", stringValue(args, "semester"));
+    appendOption(command, "--department", stringValue(args, "department"));
+    appendOption(command, "--education", stringValue(args, "education"));
+    appendOption(command, "--class-type", stringValue(args, "classType"));
+    appendOption(command, "--course-type", stringValue(args, "courseType"));
+    appendOption(command, "--course-classify", stringValue(args, "courseClassify"));
+    appendOption(command, "--course", stringValue(args, "course"));
+    appendOption(command, "--teacher", stringValue(args, "teacher"));
+    appendOption(command, "--location", stringValue(args, "location"));
+    appendOption(command, "--weekday", numberValue(args, "weekday"));
+    appendOption(command, "--period", numberValue(args, "period"));
+    appendOption(command, "--week", stringValue(args, "week"));
     return command;
   });
 

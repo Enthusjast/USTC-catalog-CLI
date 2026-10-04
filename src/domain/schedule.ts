@@ -47,7 +47,7 @@ export const timeToMinutes = (value: string): number | undefined => {
 
 export const hhmmToMinutes = (value: number): number => Math.floor(value / 100) * 60 + value % 100;
 
-const parseWeekNumbers = (value: string | undefined): number[] | undefined => {
+export const parseWeekNumbers = (value: string | undefined): number[] | undefined => {
   if (!value) return undefined;
   const weeks = new Set<number>();
   for (const segment of value.split(/[，,、]/)) {
@@ -70,6 +70,19 @@ const parseWeekNumbers = (value: string | undefined): number[] | undefined => {
 
 export const spanWeeks = (span: LessonSpan): number[] | undefined =>
   parseWeekNumbers(span.weeks);
+
+export const parseLessonSpanFilter = (value: string): { day: number; periods: number[] } | undefined => {
+  const match = value.trim().match(/^([1-7])\s*\((\d+(?:\s*[，,、]\s*\d+)*)\)$/);
+  if (!match) return undefined;
+  const periods = match[2].split(/[，,、]/).map((item) => Number(item.trim()));
+  if (periods.some((period) => !Number.isInteger(period) || period < 1 || period > 13)) return undefined;
+  return { day: Number(match[1]), periods };
+};
+
+export const lessonSpanKey = (span: LessonSpan): string | undefined =>
+  span.day === undefined || span.periods.length === 0
+    ? undefined
+    : `${span.day}(${span.periods.join(",")})`;
 
 export const spanHasUnparsedWeeks = (span: LessonSpan): boolean =>
   span.weeks !== undefined && spanWeeks(span) === undefined;

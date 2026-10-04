@@ -83,7 +83,7 @@ try {
   try {
     await client.connect(transport);
     const tools = await client.listTools();
-    assert.equal(tools.tools.length, 26);
+    assert.equal(tools.tools.length, 27);
   } finally {
     await client.close().catch(() => undefined);
   }

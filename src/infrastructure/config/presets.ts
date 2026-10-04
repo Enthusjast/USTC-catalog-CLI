@@ -16,7 +16,7 @@ const isKnownReadOnlyCommand = (args: string[]): boolean => {
   while (index < args.length && args[index].startsWith("--")) {
     const option = args[index++];
     if (["--json", "--csv", "--ics", "--offline", "--no-cache", "--all", "--no-color", "--quiet", "--verbose"].includes(option)) continue;
-    if (["--limit", "--offset", "--timeout", "--semester", "--department", "--major", "--grade", "--type", "--term", "--date", "--building", "--keyword", "--available", "--free-period", "--course", "--teacher", "--location", "--span", "--course-type", "--course-classify", "--sort", "--desc", "--class", "--education", "--include-invalid", "--mode", "--multiple", "--single", "--courses"].includes(option)) {
+    if (["--limit", "--offset", "--timeout", "--semester", "--department", "--major", "--grade", "--type", "--term", "--date", "--building", "--keyword", "--available", "--free-period", "--course", "--teacher", "--location", "--span", "--weekday", "--period", "--week", "--class-type", "--course-type", "--course-classify", "--sort", "--desc", "--class", "--education", "--include-invalid", "--mode", "--multiple", "--single", "--courses"].includes(option)) {
       if (index < args.length && !args[index].startsWith("--")) index += 1;
       continue;
     }
@@ -27,7 +27,7 @@ const isKnownReadOnlyCommand = (args: string[]): boolean => {
   if (group === "semester" || group === "department") return action === "list";
   if (group === "course") return ["search", "list", "show", "categories"].includes(action ?? "");
   if (group === "program") return ["catalog", "document", "history", "list", "show", "module"].includes(action ?? "");
-  if (group === "lesson") return ["list", "show", "conflicts"].includes(action ?? "");
+  if (group === "lesson") return ["list", "options", "show", "conflicts"].includes(action ?? "");
   if (group === "classroom") return ["list", "show", "week", "available", "buildings"].includes(action ?? "");
   if (group === "exam") return ["list", "show"].includes(action ?? "");
   if (group === "substitute") return ["list", "summary"].includes(action ?? "");

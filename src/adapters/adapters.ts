@@ -23,7 +23,14 @@ import type {
   TimetableData,
   ExamRange,
 } from "../domain/models.js";
-import { scheduleSpansConflict, timeToMinutes } from "../domain/schedule.js";
+import {
+  lessonSpanKey,
+  parseLessonSpanFilter,
+  parseWeekNumbers,
+  scheduleSpansConflict,
+  spanWeeks,
+  timeToMinutes,
+} from "../domain/schedule.js";
 
 type AnyRecord = Record<string, any>;
 
@@ -376,6 +383,7 @@ export const normalizeLesson = (input: unknown): Lesson => {
     credits: numberValue(raw.credits ?? course.credits),
     hours: numberValue(raw.period ?? raw.totalPeriods),
     education: localized(raw.education),
+    classType: localized(raw.classType),
     courseType: localized(raw.courseType),
     courseGradation: localized(raw.courseGradation),
     courseCategory: localized(raw.courseCategory),
@@ -428,10 +436,14 @@ const includesAll = (haystack: string, terms: string[]): boolean =>
 export type LessonFilters = {
   department?: string;
   education?: string;
+  classType?: string;
   course?: string;
   teacher?: string;
   location?: string;
   span?: string;
+  weekday?: number;
+  period?: number;
+  week?: string;
   courseType?: string;
   courseClassify?: string;
 };
@@ -449,6 +461,7 @@ export const filterLessons = (lessons: Lesson[], filters: LessonFilters): Lesson
       result = result.filter((item) => item.education === filters.education);
     }
   }
+  if (filters.classType) result = result.filter((item) => item.classType === filters.classType);
   if (filters.courseType) result = result.filter((item) => item.courseType === filters.courseType);
   if (filters.courseClassify) {
     result = result.filter((item) => item.courseClassify === filters.courseClassify);
@@ -480,17 +493,26 @@ export const filterLessons = (lessons: Lesson[], filters: LessonFilters): Lesson
       ),
     );
   }
-  if (filters.span) {
-    const normalized = filters.span.trim().match(/^([1-7])\s*\(([^)]+)\)$/);
-    const requested = normalized?.[2].split(/[，,、]/).map(Number) ?? [];
-    result = result.filter((item) => item.spans.some((span) => normalized
-      ? span.day === Number(normalized[1]) && requested.every((period) => span.periods.includes(period))
-      : span.text === filters.span));
+  if (filters.span || filters.weekday !== undefined || filters.period !== undefined || filters.week !== undefined) {
+    const requestedSpan = filters.span ? parseLessonSpanFilter(filters.span) : undefined;
+    const requestedWeeks = filters.week === undefined ? undefined : parseWeekNumbers(filters.week);
+    result = result.filter((item) => item.spans.some((span) => {
+      if (filters.span) {
+        if (!requestedSpan || lessonSpanKey(span) !== `${requestedSpan.day}(${requestedSpan.periods.join(",")})`) return false;
+      }
+      if (filters.weekday !== undefined && span.day !== filters.weekday) return false;
+      if (filters.period !== undefined && !span.periods.includes(filters.period)) return false;
+      if (filters.week !== undefined) {
+        const availableWeeks = spanWeeks(span);
+        if (!requestedWeeks || !availableWeeks || !availableWeeks.some((week) => requestedWeeks.includes(week))) return false;
+      }
+      return true;
+    }));
   }
   return result;
 };
 
-export type LessonSortKey = "course" | "department" | "teacher" | "location" | "students";
+export type LessonSortKey = "course" | "department" | "department-code" | "teacher" | "location" | "students";
 
 const compareNullable = (left: unknown, right: unknown): number =>
   String(left ?? "").localeCompare(String(right ?? ""), "zh-CN", { numeric: true });
@@ -502,11 +524,11 @@ export const sortLessons = (
 ): Lesson[] => {
   const result = [...lessons].sort((left, right) => {
     const leftValue = key === "course" ? left.courseName :
-      key === "department" ? left.departmentName :
+      key === "department" ? left.departmentName : key === "department-code" ? left.departmentCode :
         key === "teacher" ? left.teachers[0]?.nameZh :
           key === "location" ? left.locations[0]?.text : left.studentCount;
     const rightValue = key === "course" ? right.courseName :
-      key === "department" ? right.departmentName :
+      key === "department" ? right.departmentName : key === "department-code" ? right.departmentCode :
         key === "teacher" ? right.teachers[0]?.nameZh :
           key === "location" ? right.locations[0]?.text : right.studentCount;
     const comparison = compareNullable(leftValue, rightValue);

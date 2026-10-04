@@ -88,6 +88,7 @@ catalog program show <id>
 catalog program module <id>
 
 catalog lesson list
+catalog lesson options
 catalog lesson show <code...>
 catalog lesson conflicts <code...>
 
@@ -376,14 +377,14 @@ catalog --json lesson list --semester 461 --course 数学 \
 catalog --csv lesson list --semester 461 --department 001 > lessons.csv
 ```
 
-CSV 行使用人类可读表格的扁平字段，而不是 JSON 的全部嵌套字段。常见处理规则：
+CSV 行使用人类可读的扁平字段，而不是 JSON 的全部嵌套字段。教学班列表使用网页 Excel 导出的主要字段，包括 `classType`、`courseClassify`、`courseType`、授课语言、考核方式、本研同堂和上课班级；“课程范畴分类”不会用 `courseCategory` 代填。其他命令沿用人类可读表格字段。常见处理规则：
 
 - 数组字段会合并为中文分隔文本；
 - 教师通常使用 、 连接；
 - 课程教材、替代课程等嵌套字段会被压平成一个单元格；
 - CSV 不写 meta，因此不会混入来源提示；
 - 混合类型表格会先计算所有行的列并集，缺少的字段留空；
-- 如果需要抓取时间和来源，应使用 `--json`。
+- 如果需要抓取时间和来源，应使用 `--json`；若指定 `--limit` 或 `--offset`，CSV 只导出所选页。
 
 `--json` 与 `--csv` 不能同时使用。
 
@@ -742,18 +743,24 @@ catalog lesson list [options]
 | `--semester <id-or-code>` | 学期 ID、学期代码或中文名称 |
 | `--department <code>` | 开课单位代码，例如 001 |
 | `--education <name>` | 学历层次，例如 本科、研究生、本研贯通 |
+| `--class-type <text>` | 网页“课堂类型”筛选，对应 API `classType` |
 | `--course <text>` | 课程名、英文名或教学班编号，多空格 token 全部匹配 |
 | `--teacher <text>` | 教师姓名，多空格 token 全部匹配 |
 | `--location <text>` | 校区或教室 |
-| `--span <text>` | 精确匹配规范化上课时间片，例如 1(3,4) |
-| `--course-type <text>` | 课堂类型，例如 理论课 |
-| `--course-classify <text>` | 课程范畴 |
+| `--span <day(periods)>` | 精确匹配网页节次，例如 `1(3,4)`；不会匹配 `1(3,4,5)` |
+| `--weekday <1-7>` | 附加筛选星期；1 为星期一，7 为星期日 |
+| `--period <1-13>` | 附加筛选包含指定节次的跨度 |
+| `--week <n-or-range>` | 附加筛选周次，可用 `3`、`1-5` 或 `1-5,7-10`；端点包含 |
+| `--course-classify <text>` | 网页“课程范畴分类”，对应 API `courseClassify` |
+| `--course-type <text>` | CLI 额外筛选，对应 API `courseType`，例如 理论课；网页筛选器对应 `--class-type` |
+
+`--weekday`、`--period`、`--week` 与 `--span` 可组合使用；组合条件要求同一条上课跨度同时满足。周次无法解析的跨度不会匹配 `--week`。
 
 排序选项：
 
 | 选项 | 可选值 |
 | --- | --- |
-| `--sort <field>` | code、course、department、teacher、location、students |
+| `--sort <field>` | code、course、department、department-code、teacher、location、students |
 | `--desc` | 降序；不提供时升序 |
 
 默认排序是 code 升序，与网页默认教学班编号排序一致。
@@ -765,7 +772,9 @@ catalog lesson list --semester 461
 catalog lesson list --semester 461 --education 本科
 catalog lesson list --semester 461 --department 001 --course 数学
 catalog lesson list --semester 461 --teacher 张三 --location 5401
+catalog lesson list --semester 461 --class-type 计划内与自由选修 --weekday 1 --period 3 --week 1-5
 catalog lesson list --semester 461 --sort students --desc
+catalog lesson list --semester 461 --sort department-code
 ```
 
 普通筛选是在完整学期快照上本地执行，不会为每个筛选条件重复请求接口。改变学期会读取或请求新的教学班快照。
@@ -773,10 +782,23 @@ catalog lesson list --semester 461 --sort students --desc
 默认表格字段：
 
 ```text
-课堂号、课程名、开课单位、授课教师、时间地点、学分、学时、学历、课堂类型、课程范畴、选课人数、限选人数
+课堂号、课程名、开课单位、授课教师、时间地点、学分、学时、学历、课堂类型、课程范畴分类、课程类型、本研同堂、选课人数、限选人数
 ```
 
-### 10.2 lesson show
+CSV 会额外导出网页 Excel 中的授课语言、考核方式和上课班级等字段；“课堂类型”使用 `classType`，“课程范畴分类”使用 `courseClassify`，不以 `courseCategory` 代填。
+
+### 10.2 lesson options
+
+查看学期内网页筛选器的动态选项和教学班数量：
+
+```bash
+catalog lesson options --semester 461
+catalog --json lesson options --semester 461 --class-type 计划内与自由选修 --education 本科
+```
+
+结果包含学历、课堂类型、课程范畴分类、院系和节次选项，每项提供参数值、显示名和教学班数。学历、课堂类型、课程范畴分类和院系基于整个学期；节次选项会按本命令传入的其他筛选条件收窄。该命令复用学期教学班快照，不会为筛选项单独请求接口。
+
+### 10.3 lesson show
 
 语法：
 
@@ -793,7 +815,7 @@ catalog --json lesson show 001101.01 --semester 461
 
 该命令调用教学班详情接口，输出 LessonDetail 模型。JSON data 包含 lesson 和 course 两层：lesson 保留接口实际返回的教学班编号、课程名、学分、课堂类型、开课单位、教师、班级、地点、周次、选课人数和考核方式等字段；course 保留课程教材、简介和 syllabus。接口若没有返回教师、班级或时间地点字段，teachingClassDataAvailable 会为 false，CLI 不会伪造这些数据。详情数据作用域包含学期和教学班编号。
 
-### 10.3 lesson conflicts
+### 10.4 lesson conflicts
 
 语法：
 
@@ -1306,7 +1328,7 @@ MCP 服务会继承 CLI 的配置环境变量：
 
 ### 20.3 工具清单
 
-MCP 共提供 26 个只读工具：
+MCP 共提供 27 个只读工具：
 
 | 工具 | 对应 CLI 命令 | 用途 |
 | --- | --- | --- |
@@ -1324,6 +1346,7 @@ MCP 共提供 26 个只读工具：
 | `ustc_program_show` | `program show` | 培养方案详情 |
 | `ustc_program_module` | `program module` | 培养方案模块 |
 | `ustc_lesson_list` | `lesson list` | 全校教学班 |
+| `ustc_lesson_options` | `lesson options` | 学期动态筛选选项和节次数量 |
 | `ustc_lesson_show` | `lesson show` | 教学班详情 |
 | `ustc_lesson_conflicts` | `lesson conflicts` | 指定教学班的可能时间冲突 |
 | `ustc_classroom_buildings` | `classroom buildings` | 楼栋代码和教室数量 |
@@ -1362,7 +1385,8 @@ MCP 共提供 26 个只读工具：
 | `ustc_program_list` | `department?: string`、`major?: string`、`grade?: string`、`type?: string` |
 | `ustc_program_show` | `id: integer`；`term?: string` |
 | `ustc_program_module` | `id: integer`；`courses?: boolean` |
-| `ustc_lesson_list` | `semester?: string\|integer`、`department?: string`、`education?: string`、`course?: string`、`teacher?: string`、`location?: string`、`span?: string`、`courseType?: string`、`courseClassify?: string`、`sort?: code\|course\|department\|teacher\|location\|students`、`desc?: boolean` |
+| `ustc_lesson_list` | `semester?: string\|integer`、`department?: string`、`education?: string`、`classType?: string`、`course?: string`、`teacher?: string`、`location?: string`、`span?: string`、`weekday?: 1..7`、`period?: 1..13`、`week?: string`、`courseType?: string`、`courseClassify?: string`、`sort?: code\|course\|department\|department-code\|teacher\|location\|students`、`desc?: boolean` |
+| `ustc_lesson_options` | `semester?: string\|integer` 及可传入的教学班筛选项；返回学历、课堂类型、课程范畴分类、院系、节次的选项和值数量 |
 | `ustc_lesson_show` | `codes: string[]`；`semester: string\|integer` |
 | `ustc_lesson_conflicts` | `codes: string[]`（至少两个）；`semester: string\|integer` |
 | `ustc_classroom_list` | `date?: YYYY-MM-DD`、`building?: string`、`keyword?: string`、`available?: boolean`、`freePeriod?: 0..13\|noon\|evening` |

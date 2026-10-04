@@ -21,7 +21,7 @@ import {
   normalizeSubstitutes,
   normalizeTimetable,
 } from "../adapters/adapters.js";
-import type { ClassroomUsage, FreePeriod, Semester } from "../domain/models.js";
+import type { ClassroomUsage, FreePeriod, Lesson, LessonFilterOption, Semester } from "../domain/models.js";
 import type { AccessOptions } from "./data-access-policy.js";
 import type { AppConfig } from "../infrastructure/config/paths.js";
 import { CatalogApiClient, type ApiResult } from "../infrastructure/http/catalog-api-client.js";
@@ -36,7 +36,7 @@ import type {
   ResultMeta,
 } from "../domain/models.js";
 import { CliError } from "../domain/errors.js";
-import { hhmmToMinutes, requestedChannels, teachingPeriods, timeRangeOverlaps, timeToMinutes } from "../domain/schedule.js";
+import { hhmmToMinutes, lessonSpanKey, requestedChannels, teachingPeriods, timeRangeOverlaps, timeToMinutes } from "../domain/schedule.js";
 
 export type ServiceOptions = AccessOptions;
 
@@ -334,7 +334,7 @@ export function createServices(config: AppConfig) {
 
   const lessonService = {
     async list(
-      filters: { semesterId?: number; sort?: "code" | "course" | "department" | "teacher" | "location" | "students"; descending?: boolean } & Parameters<typeof filterLessons>[1],
+      filters: { semesterId?: number; sort?: "code" | "course" | "department" | "department-code" | "teacher" | "location" | "students"; descending?: boolean } & Parameters<typeof filterLessons>[1],
       options: ServiceOptions,
     ) {
       const semester = filters.semesterId ?? (await commonService.defaultSemester(options)).value.id;
@@ -348,6 +348,85 @@ export function createServices(config: AppConfig) {
         ? (filters.descending ? codeSorted.reverse() : codeSorted)
         : sortLessons(filtered, filters.sort ?? "course", filters.descending);
       return { ...loaded, value: sorted };
+    },
+
+    async options(
+      filters: { semesterId?: number } & Parameters<typeof filterLessons>[1],
+      options: ServiceOptions,
+    ): Promise<Loaded<LessonFilterOption[]>> {
+      const loaded = await lessonService.list(
+        { semesterId: filters.semesterId, sort: "code" },
+        options,
+      );
+      const allLessons = loaded.value;
+      const scopedLessons = filterLessons(allLessons, {
+        department: filters.department,
+        education: filters.education,
+        classType: filters.classType,
+        course: filters.course,
+        teacher: filters.teacher,
+        location: filters.location,
+        weekday: filters.weekday,
+        period: filters.period,
+        week: filters.week,
+        courseType: filters.courseType,
+        courseClassify: filters.courseClassify,
+      });
+      const rows: LessonFilterOption[] = [];
+      const addOptions = (
+        dimension: LessonFilterOption["dimension"],
+        lessons: Lesson[],
+        field: (lesson: Lesson) => string | null | undefined,
+      ): void => {
+        const counts = new Map<string, number>();
+        for (const lesson of lessons) {
+          const value = field(lesson);
+          if (value) counts.set(value, (counts.get(value) ?? 0) + 1);
+        }
+        for (const [value, count] of [...counts.entries()].sort(([left], [right]) =>
+          left.localeCompare(right, "zh-CN", { numeric: true }))) {
+          rows.push({ dimension, value, label: value, count });
+        }
+      };
+
+      addOptions("education", allLessons, (lesson) => lesson.education);
+      const integratedCount = allLessons.filter((lesson) => lesson.courseGradation === "本研贯通").length;
+      if (integratedCount > 0) {
+        rows.push({ dimension: "education", value: "本研贯通", label: "本研贯通", count: integratedCount });
+      }
+      addOptions("classType", allLessons, (lesson) => lesson.classType);
+      addOptions("courseClassify", allLessons, (lesson) => lesson.courseClassify);
+
+      const departments = new Map<string, { label: string; count: number }>();
+      for (const lesson of allLessons) {
+        if (!lesson.departmentCode) continue;
+        const current = departments.get(lesson.departmentCode);
+        departments.set(lesson.departmentCode, {
+          label: lesson.departmentName
+            ? `${lesson.departmentCode} ${lesson.departmentName}`
+            : lesson.departmentCode,
+          count: (current?.count ?? 0) + 1,
+        });
+      }
+      for (const [value, item] of [...departments.entries()].sort(([left], [right]) =>
+        left.localeCompare(right, "zh-CN", { numeric: true }))) {
+        rows.push({ dimension: "department", value, label: item.label, count: item.count });
+      }
+
+      const spanCounts = new Map<string, number>();
+      for (const lesson of scopedLessons) {
+        const spans = new Set(lesson.spans.map(lessonSpanKey).filter((span): span is string => Boolean(span)));
+        for (const span of spans) spanCounts.set(span, (spanCounts.get(span) ?? 0) + 1);
+      }
+      for (const [value, count] of [...spanCounts.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+        rows.push({ dimension: "span", value, label: value, count });
+      }
+
+      return {
+        ...loaded,
+        value: rows,
+        meta: { ...loaded.meta, resource: "lesson-options", scope: String(filters.semesterId ?? loaded.meta.scope) },
+      };
     },
 
     async details(codes: string[], semester: number, options: ServiceOptions) {

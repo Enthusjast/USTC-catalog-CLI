@@ -6,7 +6,7 @@ import process from "node:process";
 import { loadConfig, defaultConfigDir, type AppConfig } from "./infrastructure/config/paths.js";
 import { createServices, type Services } from "./application/services.js";
 import { CliError } from "./domain/errors.js";
-import type { FreePeriod, ProgramModule, QueryOptions, ResultMeta } from "./domain/models.js";
+import type { FreePeriod, LessonFilterOption, ProgramModule, QueryOptions, ResultMeta } from "./domain/models.js";
 import { emitMessage, emitResult } from "./presentation/output.js";
 import { serializeIcalendar, lessonCalendarEvents, examCalendarEvents } from "./presentation/ical.js";
 import { buildLessonConflictReport } from "./application/lesson-conflicts.js";
@@ -15,7 +15,8 @@ import { pruneSnapshots, prefetchSnapshots } from "./application/cache-maintenan
 import { runDiagnostics } from "./application/diagnostics.js";
 import { shellCompletion } from "./presentation/completion.js";
 import { CLI_VERSION_TEXT } from "./version.js";
-import { CACHE_RESOURCE_NAMES } from "./domain/query.js";
+import { CACHE_RESOURCE_NAMES, type LessonFilter } from "./domain/query.js";
+import { parseLessonSpanFilter, parseWeekNumbers } from "./domain/schedule.js";
 import {
   classroomRows,
   courseDetailRows,
@@ -23,6 +24,7 @@ import {
   examRows,
   lessonRows,
   lessonDetailRows,
+  lessonExportRows,
   programCatalogRows,
   programDocumentRows,
   programRows,
@@ -132,6 +134,61 @@ export const parseClock = (value: string, label: string, allowEndOfDay = false):
     throw new CliError("ARGUMENT_ERROR", `${label}不是有效时间：${value}`);
   }
   return hour * 60 + minute;
+};
+
+const addLessonFilterOptions = (command: Command, includeSpan = true): Command => {
+  command
+    .option("--semester <id-or-code>", "学期 ID 或学期代码")
+    .option("--department <code>", "开课单位代码")
+    .option("--education <name>", "学历层次")
+    .option("--class-type <text>", "网页筛选器中的课堂类型")
+    .option("--course-type <text>", "课程类型；CLI 额外筛选，对应 API courseType")
+    .option("--course-classify <text>", "课程范畴分类，对应 API courseClassify")
+    .option("--course <text>", "课程名或课堂号")
+    .option("--teacher <text>", "教师")
+    .option("--location <text>", "校区或教室");
+  if (includeSpan) command.option("--span <day(periods)>", "精确匹配网页节次，例如 1(3,4)");
+  return command
+    .option("--weekday <1-7>", "星期几；1 为星期一，7 为星期日")
+    .option("--period <1-13>", "包含指定节次")
+    .option("--week <n|range>", "周次或逗号分隔的范围，例如 1-5,7-10");
+};
+
+const lessonFiltersFrom = (opts: Record<string, unknown>): Omit<LessonFilter, "semesterId"> => {
+  const value = (key: string): string | undefined =>
+    typeof opts[key] === "string" ? opts[key] as string : undefined;
+  const weekdayValue = value("weekday");
+  const weekday = weekdayValue === undefined ? undefined : parseInteger(weekdayValue);
+  if (weekday !== undefined && (weekday < 1 || weekday > 7)) {
+    throw new CliError("ARGUMENT_ERROR", "--weekday 必须是 1 到 7 之间的整数。");
+  }
+  const periodValue = value("period");
+  const period = periodValue === undefined ? undefined : parseInteger(periodValue);
+  if (period !== undefined && (period < 1 || period > 13)) {
+    throw new CliError("ARGUMENT_ERROR", "--period 必须是 1 到 13 之间的整数。");
+  }
+  const week = value("week");
+  if (week !== undefined && !parseWeekNumbers(week)) {
+    throw new CliError("ARGUMENT_ERROR", "--week 使用周次或范围，例如 3、1-5、1-5,7-10；周次范围为 1 到 60。");
+  }
+  const span = value("span");
+  if (span !== undefined && !parseLessonSpanFilter(span)) {
+    throw new CliError("ARGUMENT_ERROR", "--span 使用网页展示的节次格式，例如 1(3,4)。");
+  }
+  return {
+    department: value("department"),
+    education: value("education"),
+    classType: value("classType"),
+    courseType: value("courseType"),
+    courseClassify: value("courseClassify"),
+    course: value("course"),
+    teacher: value("teacher"),
+    location: value("location"),
+    span,
+    weekday,
+    period,
+    week,
+  };
 };
 
 const emitPresetProcess = (args: string[], format: QueryOptions["format"], ics: boolean): void => {
@@ -436,35 +493,20 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
   });
 
   const lesson = program.command("lesson").description("全校开课查询");
-  lesson
-    .command("list")
-    .option("--semester <id-or-code>", "学期 ID 或学期代码")
-    .option("--department <code>", "开课单位代码")
-    .option("--education <name>", "学历层次")
-    .option("--course <text>", "课程名或课堂号")
-    .option("--teacher <text>", "教师")
-    .option("--location <text>", "校区或教室")
-    .option("--span <text>", "上课时间片")
-    .option("--course-type <text>", "课堂类型")
-    .option("--course-classify <text>", "课程范畴")
-    .option("--sort <field>", "排序字段：code、course、department、teacher、location、students", "code")
+  const lessonList = lesson.command("list");
+  addLessonFilterOptions(lessonList)
+    .option("--sort <field>", "排序字段：code、course、department、department-code、teacher、location、students", "code")
     .option("--desc", "降序")
     .action(async (_opts: unknown, command: Command) => {
       const options = cliOptions(command);
       const opts = command.opts();
-      const sort = choice(opts.sort, ["code", "course", "department", "teacher", "location", "students"], "--sort");
+      const filters = lessonFiltersFrom(opts);
+      const sort = choice(opts.sort, ["code", "course", "department", "department-code", "teacher", "location", "students"], "--sort");
       const semesterId = await resolveSemester(services, opts.semester, options);
       const result = await services.lesson.list(
         {
           semesterId,
-          department: opts.department,
-          education: opts.education,
-          course: opts.course,
-          teacher: opts.teacher,
-          location: opts.location,
-          span: opts.span,
-          courseType: opts.courseType,
-          courseClassify: opts.courseClassify,
+          ...filters,
           sort,
           descending: Boolean(opts.desc),
         },
@@ -479,8 +521,35 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
         emitCalendarOutput(`USTC ${semester.nameZh} 教学班`, lessonCalendarEvents(lessons, semester), result.meta, options.offline, options.quiet);
         return;
       }
-      emitResult(result, options, 25, { tableRows: lessonRows(result.value) });
+      emitResult(result, options, 25, {
+        tableRows: lessonRows(result.value),
+        csvRows: lessonExportRows(result.value),
+        tableTotal: result.value.length,
+      });
     });
+  const lessonOptions = lesson.command("options")
+    .description("查看学期筛选选项和课程数量；可用列表筛选条件收窄节次选项");
+  addLessonFilterOptions(lessonOptions, false).action(async (_opts: unknown, command: Command) => {
+    const options = cliOptions(command);
+    const opts = command.opts();
+    const filters = lessonFiltersFrom(opts);
+    const semesterId = await resolveSemester(services, opts.semester, options);
+    const result = await services.lesson.options({ semesterId, ...filters }, accessOptions(options));
+    const dimensionNames: Record<LessonFilterOption["dimension"], string> = {
+      education: "学历层次",
+      classType: "课堂类型",
+      courseClassify: "课程范畴分类",
+      department: "院系",
+      span: "上课节次",
+    };
+    const rows = result.value.map((item) => ({
+      筛选项: dimensionNames[item.dimension],
+      选项: item.label,
+      参数值: item.value,
+      教学班数: item.count,
+    }));
+    emitResult(result, options, 100, { tableRows: rows, tableTotal: rows.length });
+  });
   lesson
     .command("show <codes...>")
     .requiredOption("--semester <id-or-code>", "学期 ID 或学期代码")

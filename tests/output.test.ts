@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { emitResult } from "../src/presentation/output.js";
+import { normalizeLesson } from "../src/adapters/adapters.js";
+import { lessonExportRows, lessonRows } from "../src/presentation/rows.js";
 
 describe("output contracts", () => {
   it("unions columns for mixed table rows in CSV", () => {
@@ -36,6 +38,46 @@ describe("output contracts", () => {
     expect(output).not.toContain("1,");
     expect(output).not.toContain("3,");
     write.mockRestore();
+  });
+
+  it("keeps API lesson type fields distinct and exports the website's full lesson columns", () => {
+    const lesson = normalizeLesson({
+      id: 1,
+      code: "MATH1001.01",
+      course: { code: "MATH1001", cn: "数学分析" },
+      classType: { cn: "计划内与自由选修" },
+      courseType: { cn: "理论课" },
+      courseCategory: { cn: "本科计划内课程" },
+      courseClassify: { cn: null },
+      courseGradation: { cn: "本研贯通" },
+      education: { cn: "本科" },
+      teachLang: { cn: "中文" },
+      examMode: { cn: "笔试" },
+      graduateAndPostgraduate: true,
+      stdCount: 30,
+      limitCount: 40,
+      teacherAssignmentList: [{ cn: "张三" }],
+      adminClasses: [{ cn: "26数学" }],
+      dateTimePlaceText: "5401: 1(3,4)",
+      dateTimePlacePersonText: { cn: "1~15周 5401 :1(3,4) 张三" },
+    });
+    const row = lessonRows([lesson])[0];
+    expect(row).toMatchObject({
+      课堂类型: "计划内与自由选修",
+      课程范畴分类: "",
+      课程类型: "理论课",
+      本研同堂: "是",
+    });
+    expect(lessonExportRows([lesson])[0]).toMatchObject({
+      课堂类型: "计划内与自由选修",
+      课程范畴分类: "",
+      课程类型: "理论课",
+      授课语言: "中文",
+      考核方式: "笔试",
+      本研同堂: "是",
+      上课班级: "26数学",
+      时间地点: "1~15周 5401 :1(3,4) 张三",
+    });
   });
 
   it("rejects offset for object-shaped results", () => {

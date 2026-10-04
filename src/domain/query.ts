@@ -32,10 +32,14 @@ export type LessonFilter = {
   semesterId: number;
   department?: string;
   education?: string;
+  classType?: string;
   course?: string;
   teacher?: string;
   location?: string;
   span?: string;
+  weekday?: number;
+  period?: number;
+  week?: string;
   courseType?: string;
   courseClassify?: string;
 };

@@ -10,6 +10,7 @@ import {
   normalizeLessonDetail,
   normalizeSubstitutes,
   normalizeTimetable,
+  sortLessons,
   sortExams,
 } from "../src/adapters/adapters.js";
 import { COURSE_CATALOG_BY_CODE } from "../src/data/course-catalog.js";
@@ -22,6 +23,7 @@ describe("web behavior adapters", () => {
       code: "MATH1001.01",
       course: { id: 2, code: "MATH1001", cn: "数学分析", en: "Analysis" },
       education: { cn: "本科", en: "Undergraduate" },
+      classType: { cn: "计划内与自由选修" },
       courseType: { cn: "理论课" },
       courseGradation: { cn: "专业基础" },
       courseCategory: { cn: "本科计划内课程" },
@@ -34,12 +36,15 @@ describe("web behavior adapters", () => {
     });
 
     expect(lesson.courseCode).toBe("MATH1001");
+    expect(lesson.classType).toBe("计划内与自由选修");
     expect(lesson.courseClassify).toBeNull();
     expect(filterLessons([lesson], { course: "数学" })).toHaveLength(1);
+    expect(filterLessons([lesson], { classType: "计划内与自由选修" })).toHaveLength(1);
+    expect(filterLessons([lesson], { classType: "理论课" })).toHaveLength(0);
     expect(filterLessons([lesson], { course: "不存在" })).toHaveLength(0);
   });
 
-  it("matches normalized lesson spans and reports overlaps only in shared weeks", () => {
+  it("matches exact web spans and conjunctive weekday, period, and week filters", () => {
     const lesson = normalizeLesson({
       id: 1,
       code: "MATH1001.01",
@@ -48,6 +53,21 @@ describe("web behavior adapters", () => {
       dateTimePlacePersonText: { cn: "1~15周 5401 :1(3,4) 张三" },
     });
     expect(filterLessons([lesson], { span: "1(3,4)" })).toHaveLength(1);
+    expect(filterLessons([
+      normalizeLesson({
+        id: 2,
+        code: "MATH1002.01",
+        course: { code: "MATH1002", cn: "数学分析续论" },
+        dateTimePlaceText: "5401: 1(3,4,5)",
+        dateTimePlacePersonText: { cn: "1~15周 5401 :1(3,4,5) 张三" },
+      }),
+    ], { span: "1(3,4)" })).toHaveLength(0);
+    expect(filterLessons([lesson], { weekday: 1, period: 4, week: "1-3,7" })).toHaveLength(1);
+    expect(filterLessons([lesson], { weekday: 2, period: 4 })).toHaveLength(0);
+    expect(filterLessons([lesson], { week: "16-18" })).toHaveLength(0);
+    expect(filterLessons([
+      { ...lesson, spans: [{ day: 1, periods: [4], weeks: "单周", text: "单周" }] },
+    ], { weekday: 1, period: 4, week: "3" })).toHaveLength(0);
 
     const conflicts = findLessonConflicts([
       lesson,
@@ -81,6 +101,14 @@ describe("web behavior adapters", () => {
     expect(detail.lesson.credits).toBe(6);
     expect(detail.lesson.examMode).toBe("笔试（闭卷）");
     expect(detail.teachingClassDataAvailable).toBe(false);
+  });
+
+  it("supports sorting lessons by the website's department code", () => {
+    const lessons = [
+      normalizeLesson({ id: 1, code: "B.01", course: { cn: "课程B" }, openDepartment: { code: "010", cn: "乙系" } }),
+      normalizeLesson({ id: 2, code: "A.01", course: { cn: "课程A" }, openDepartment: { code: "002", cn: "甲系" } }),
+    ];
+    expect(sortLessons(lessons, "department-code").map((lesson) => lesson.code)).toEqual(["A.01", "B.01"]);
   });
 
   it("merges reverse substitute relations and detects both-side multiple courses", () => {

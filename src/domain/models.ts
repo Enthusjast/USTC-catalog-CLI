@@ -177,6 +177,7 @@ export type Lesson = {
   credits?: number | null;
   hours?: number | null;
   education?: string | null;
+  classType?: string | null;
   courseType?: string | null;
   courseGradation?: string | null;
   courseCategory?: string | null;
@@ -194,6 +195,13 @@ export type Lesson = {
   limitCount?: number | null;
   teachLanguage?: string | null;
   graduateAndPostgraduate?: boolean;
+};
+
+export type LessonFilterOption = {
+  dimension: "education" | "classType" | "courseClassify" | "department" | "span";
+  value: string;
+  label: string;
+  count: number;
 };
 
 export type LessonDetail = {
