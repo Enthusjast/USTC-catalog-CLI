@@ -21,13 +21,13 @@ import {
   normalizeSubstitutes,
   normalizeTimetable,
 } from "../adapters/adapters.js";
-import type { ClassroomUsage, Semester } from "../domain/models.js";
+import type { ClassroomUsage, FreePeriod, Semester } from "../domain/models.js";
 import type { AccessOptions } from "./data-access-policy.js";
 import type { AppConfig } from "../infrastructure/config/paths.js";
 import { CatalogApiClient, type ApiResult } from "../infrastructure/http/catalog-api-client.js";
 import { SnapshotRepository } from "../infrastructure/cache/snapshot-repository.js";
 import { STATIC_ROOMS } from "../data/rooms.js";
-import { COURSE_CATALOG_BY_CODE } from "../data/course-catalog.js";
+import { COURSE_CATALOG_BY_CODE, COURSE_CATALOG_ENTRIES } from "../data/course-catalog.js";
 import { STATIC_PROGRAM_BY_ID, STATIC_PROGRAMS } from "../data/programs.js";
 import { normalizeProgramDocument } from "../adapters/program-document.js";
 import type {
@@ -36,6 +36,7 @@ import type {
   ResultMeta,
 } from "../domain/models.js";
 import { CliError } from "../domain/errors.js";
+import { hhmmToMinutes, requestedChannels, teachingPeriods, timeRangeOverlaps, timeToMinutes } from "../domain/schedule.js";
 
 export type ServiceOptions = AccessOptions;
 
@@ -75,46 +76,6 @@ const displayedBuildingCodes = new Set([
   "1", "2", "3", "5", "8", "9", "11", "12", "13", "14", "15", "16", "22", "41", "42", "43",
 ]);
 
-const teachingPeriodChannels = [1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 13, 14, 15];
-
-const periodRangesByLayout: Record<number, Array<[number, number]>> = {
-  1: [
-  [750, 835], [840, 925], [945, 1030], [1035, 1120], [1125, 1210],
-  [1220, 1340], [1400, 1445], [1450, 1535], [1555, 1640], [1645, 1730],
-  [1735, 1820], [1830, 1920], [1930, 2015], [2020, 2105], [2110, 2155],
-  ],
-  2: [
-    [800, 845], [850, 935], [1010, 1055], [1100, 1145], [1155, 1350],
-    [1400, 1445], [1450, 1535], [1610, 1655], [1700, 1745], [1750, 1835],
-    [1845, 1920], [1930, 2015], [2020, 2105], [2110, 2155],
-  ],
-};
-
-const channelLabelsByLayout: Record<number, string[]> = {
-  1: ["1", "2", "3", "4", "5", "中午", "6", "7", "8", "9", "10", "傍晚", "11", "12", "13"],
-  2: ["1", "2", "3", "4", "中午", "6", "7", "8", "9", "10", "傍晚", "11", "12", "13"],
-};
-
-const asMinute = (value: string): number => {
-  if (value.includes(":")) {
-    const [hour, minute] = value.split(":").map(Number);
-    return hour * 60 + minute;
-  }
-  const numeric = Number(value);
-  return Math.floor(numeric / 100) * 60 + numeric % 100;
-};
-
-const channelsFor = (start: string, end: string, layout = 1): number[] => {
-  const startValue = asMinute(start);
-  const endValue = asMinute(end);
-  const periods = periodRangesByLayout[layout] ?? periodRangesByLayout[1];
-  return periods.flatMap(([rangeStart, rangeEnd], index) => {
-    const startMinute = asMinute(String(rangeStart));
-    const endMinute = asMinute(String(rangeEnd));
-    return startValue < endMinute && endValue > startMinute ? [index + 1] : [];
-  });
-};
-
 const asNetworkValue = <T>(result: ApiResult<T>, dataAsOf?: string | null): NetworkValue<T> => ({
   value: result.data,
   fetchedAt: result.fetchedAt,
@@ -145,11 +106,16 @@ const aggregateMeta = (
 
 const applyUsageChannels = (usage: ClassroomUsage): ClassroomUsage => {
   const layout = usage.layout ?? 1;
-  const channels = channelsFor(usage.start, usage.end, layout);
+  const start = timeToMinutes(usage.start);
+  const end = timeToMinutes(usage.end);
+  const channels = start === undefined || end === undefined ? [] : teachingPeriods(layout)
+    .filter((period) => start < hhmmToMinutes(period.end) && end > hhmmToMinutes(period.start))
+    .map((period) => period.channel);
+  const labels = new Map(teachingPeriods(layout).map((period) => [period.channel, period.label]));
   return {
     ...usage,
     channels,
-    channelText: channels.map((channel) => channelLabelsByLayout[layout]?.[channel - 1] ?? String(channel)),
+    channelText: channels.map((channel) => labels.get(channel) ?? String(channel)),
   };
 };
 
@@ -201,6 +167,20 @@ export function createServices(config: AppConfig) {
   ): Promise<Loaded<T>> => load(resource, scope, async () => asNetworkValue(await request(), dataAsOf), options);
 
   const courseService = {
+    categories() {
+      return {
+        value: COURSE_CATALOG_ENTRIES.map((entry) => ({ ...entry, sourceIds: [...entry.sourceIds] })),
+        meta: {
+          resource: "course-categories",
+          scope: "all",
+          source: "static" as const,
+          fetchedAt: new Date().toISOString(),
+          dataAsOf: "网页课程目录配置随 CLI 版本固化",
+          stale: false,
+        },
+      };
+    },
+
     async search(keyword: string, options: ServiceOptions, includeInvalid = false) {
       const loaded = await loadApi("course-search", keyword, () => api.courseSearch(keyword), options);
       const courses = (loaded.value as unknown[]).map(normalizeCourse);
@@ -380,9 +360,33 @@ export function createServices(config: AppConfig) {
   };
 
   const classroomService = {
+    buildings() {
+      const byCode = new Map<string, { code: string; name: string; rooms: number }>();
+      for (const room of STATIC_ROOMS) {
+        if (!displayedBuildingCodes.has(room.buildingCode)) continue;
+        const existing = byCode.get(room.buildingCode);
+        byCode.set(room.buildingCode, {
+          code: room.buildingCode,
+          name: buildingNames[room.buildingCode] ?? "其他",
+          rooms: (existing?.rooms ?? 0) + 1,
+        });
+      }
+      return {
+        value: [...byCode.values()].sort((a, b) => a.code.localeCompare(b.code, "zh-CN", { numeric: true })),
+        meta: {
+          resource: "classroom-buildings",
+          scope: "all",
+          source: "static" as const,
+          fetchedAt: new Date().toISOString(),
+          dataAsOf: "教室目录随 CLI 版本固化",
+          stale: false,
+        },
+      };
+    },
+
     async list(
       date: string,
-      filters: { building?: string; keyword?: string; freePeriod?: number; availableOnly?: boolean },
+      filters: { building?: string; keyword?: string; freePeriod?: FreePeriod; availableBetween?: { from: number; to: number }; minSeats?: number; availableOnly?: boolean },
       options: ServiceOptions,
     ) {
       const loaded = await loadApi("timetable", date, () => api.timetable(date), options, date);
@@ -392,6 +396,10 @@ export function createServices(config: AppConfig) {
       const grouped = new Map<string, ClassroomUsage[]>();
       for (const usage of usages) {
         grouped.set(usage.classroomCode, [...(grouped.get(usage.classroomCode) ?? []), usage]);
+      }
+      const rawGrouped = new Map<string, ClassroomUsage[]>();
+      for (const usage of normalizeTimetable(loaded.value, date)) {
+        rawGrouped.set(usage.classroomCode, [...(rawGrouped.get(usage.classroomCode) ?? []), usage]);
       }
       const keyword = filters.keyword?.toLowerCase();
       const value = STATIC_ROOMS.flatMap((room) => {
@@ -405,17 +413,25 @@ export function createServices(config: AppConfig) {
           buildings.includes(room.buildingCode) ||
           (buildings.includes("4123") && ["41", "42", "43"].includes(room.buildingCode));
         if (!buildingMatches) return [];
+        if (filters.minSeats !== undefined && room.seats < filters.minSeats) return [];
         const entries = grouped.get(room.code) ?? [];
         if (filters.availableOnly && entries.length > 0) return [];
         if (filters.freePeriod === 0 && entries.length > 0) {
           return [];
         }
-        const requestedChannel = filters.freePeriod && filters.freePeriod > 0
-          ? teachingPeriodChannels[filters.freePeriod - 1]
-          : undefined;
-        if (requestedChannel !== undefined && entries.some((item) => item.channels.includes(requestedChannel))) {
+        const requested = filters.freePeriod === undefined || filters.freePeriod === 0
+          ? []
+          : requestedChannels(filters.freePeriod, entries.find((item) => item.layout)?.layout ?? 1);
+        if (filters.freePeriod !== undefined && filters.freePeriod !== 0 && requested.length === 0) return [];
+        if (requested.length > 0 && entries.some((item) => requested.some((channel) => item.channels.includes(channel)))) {
           return [];
         }
+        if (filters.availableBetween && (rawGrouped.get(room.code) ?? []).some((item) => timeRangeOverlaps(
+          item.start,
+          item.end,
+          filters.availableBetween!.from,
+          filters.availableBetween!.to,
+        ))) return [];
         if (keyword) {
           const haystack = `${room.code} ${room.nameZh} ${entries
             .map((item) => `${item.courseIds.join(" ")} ${item.courseName ?? ""} ${item.teachers.join(" ")} ${item.applicant ?? ""} ${item.sponsor ?? ""}`)

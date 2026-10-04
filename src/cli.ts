@@ -1,11 +1,19 @@
 import { Command } from "commander";
 import { createInterface } from "node:readline/promises";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import process from "node:process";
-import { loadConfig, type AppConfig } from "./infrastructure/config/paths.js";
+import { loadConfig, defaultConfigDir, type AppConfig } from "./infrastructure/config/paths.js";
 import { createServices, type Services } from "./application/services.js";
 import { CliError } from "./domain/errors.js";
-import type { ProgramModule, QueryOptions } from "./domain/models.js";
+import type { FreePeriod, ProgramModule, QueryOptions, ResultMeta } from "./domain/models.js";
 import { emitMessage, emitResult } from "./presentation/output.js";
+import { serializeIcalendar, lessonCalendarEvents, examCalendarEvents } from "./presentation/ical.js";
+import { buildLessonConflictReport } from "./application/lesson-conflicts.js";
+import { PresetStore } from "./infrastructure/config/presets.js";
+import { pruneSnapshots, prefetchSnapshots } from "./application/cache-maintenance.js";
+import { runDiagnostics } from "./application/diagnostics.js";
+import { shellCompletion } from "./presentation/completion.js";
 import { CLI_VERSION_TEXT } from "./version.js";
 import { CACHE_RESOURCE_NAMES } from "./domain/query.js";
 import {
@@ -22,8 +30,9 @@ import {
 } from "./presentation/rows.js";
 
 const parseInteger = (value: string): number => {
+  if (!/^-?\d+$/.test(value)) throw new CliError("ARGUMENT_ERROR", `${value} 必须是整数。`);
   const parsed = Number(value);
-  if (!Number.isInteger(parsed)) throw new CliError("ARGUMENT_ERROR", `${value} 必须是整数。`);
+  if (!Number.isSafeInteger(parsed)) throw new CliError("ARGUMENT_ERROR", `${value} 必须是安全范围内的整数。`);
   return parsed;
 };
 
@@ -33,14 +42,18 @@ const parsePositiveInteger = (value: string): number => {
   return parsed;
 };
 
-export const parseFreePeriod = (value: string): number => {
+export const parseFreePeriod = (value: string): FreePeriod => {
+  if (value === "noon" || value === "中午") return "noon";
+  if (value === "evening" || value === "傍晚") return "evening";
   const parsed = parseInteger(value);
   if (parsed < 0 || parsed > 13) throw new CliError("ARGUMENT_ERROR", "节次必须是 0 到 13 之间的整数。");
   return parsed;
 };
 
 const parseFormat = (opts: Record<string, unknown>): QueryOptions["format"] => {
-  if (opts.json && opts.csv) throw new CliError("ARGUMENT_ERROR", "--json 和 --csv 不能同时使用。");
+  if (Number(Boolean(opts.json)) + Number(Boolean(opts.csv)) + Number(Boolean(opts.ics)) > 1) {
+    throw new CliError("ARGUMENT_ERROR", "--json、--csv 和 --ics 只能选择一个。");
+  }
   return opts.json ? "json" : opts.csv ? "csv" : "table";
 };
 
@@ -55,7 +68,8 @@ const choice = <T extends string>(value: string | undefined, values: readonly T[
 const queryOptions = (command: unknown, root?: Command): QueryOptions => {
   const local = command instanceof Command ? command.optsWithGlobals() : (command as Record<string, unknown>);
   const opts = { ...(root?.opts() ?? {}), ...(local ?? {}) } as Record<string, unknown>;
-  if (opts.offline && opts.noCache) {
+  const noCache = opts.noCache === true || opts.cache === false;
+  if (opts.offline && noCache) {
     throw new CliError("ARGUMENT_ERROR", "--offline 和 --no-cache 不能同时使用。");
   }
   return {
@@ -66,6 +80,8 @@ const queryOptions = (command: unknown, root?: Command): QueryOptions => {
     offset: opts.offset === undefined ? 0 : parsePositiveInteger(String(opts.offset)),
     all: Boolean(opts.all),
     noColor: opts.noColor !== undefined ? Boolean(opts.noColor) : opts.color === false,
+    wide: Boolean(opts.wide),
+    ics: Boolean(opts.ics),
     quiet: Boolean(opts.quiet),
     verbose: Boolean(opts.verbose),
   };
@@ -105,6 +121,30 @@ export const validDate = (value: string, label = "日期"): string => {
     throw new CliError("ARGUMENT_ERROR", `${label}不是有效日期：${value}`);
   }
   return value;
+};
+
+export const parseClock = (value: string, label: string, allowEndOfDay = false): number => {
+  const match = value.match(/^(\d{2}):(\d{2})$/);
+  if (!match) throw new CliError("ARGUMENT_ERROR", `${label}必须使用 HH:MM 格式。`);
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (minute > 59 || hour > 24 || (hour === 24 && (!allowEndOfDay || minute !== 0))) {
+    throw new CliError("ARGUMENT_ERROR", `${label}不是有效时间：${value}`);
+  }
+  return hour * 60 + minute;
+};
+
+const emitPresetProcess = (args: string[], format: QueryOptions["format"], ics: boolean): void => {
+  const entry = fileURLToPath(new URL(process.argv[1]?.endsWith(".ts") ? "./main.ts" : "./main.js", import.meta.url));
+  const output = ics ? ["--ics"] : format === "table" ? [] : [`--${format}`];
+  const child = spawnSync(process.execPath, [entry, ...output, ...args], {
+    cwd: process.cwd(),
+    env: process.env,
+    shell: false,
+    stdio: "inherit",
+  });
+  if (child.error) throw new CliError("PRESET_ERROR", "无法启动预设查询。", "请检查 Node.js 和 CLI 安装。", child.error);
+  process.exitCode = child.status ?? 1;
 };
 
 const buildingFilter = (value?: string): string | undefined => {
@@ -179,27 +219,41 @@ const emitStaticMessage = (resource: string, label: string, value: string, optio
   );
 };
 
-const confirmCacheClear = async (options: QueryOptions, yes: boolean, resource?: string): Promise<void> => {
+const emitCalendarOutput = (
+  title: string,
+  result: { events: Parameters<typeof serializeIcalendar>[1]; skipped: number },
+  meta?: ResultMeta,
+  offline = false,
+  quiet = false,
+): void => {
+  process.stdout.write(serializeIcalendar(title, result.events));
+  if (!quiet && meta?.stale) {
+    const text = offline ? "提示：日历数据来自离线缓存" : "警告：网络请求失败，日历数据来自缓存";
+    process.stderr.write(`${text}，抓取时间：${meta.fetchedAt}${meta.dataAsOf ? `，数据时间：${meta.dataAsOf}` : ""}\n`);
+  }
+  if (!quiet && result.skipped > 0) process.stderr.write(`提示：${result.skipped} 条记录因缺少可解析的日期或时间，未写入日历。\n`);
+}
+
+const confirmDestructiveAction = async (options: QueryOptions, yes: boolean, target: string): Promise<void> => {
   if (yes) return;
   if (options.format !== "table") {
-    throw new CliError("ARGUMENT_ERROR", "使用 --json 或 --csv 清理缓存时必须显式提供 --yes。");
+    throw new CliError("ARGUMENT_ERROR", "使用非表格输出执行删除操作时必须显式提供 --yes。");
   }
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    throw new CliError("ARGUMENT_ERROR", "非交互环境清理缓存时必须显式提供 --yes。");
+    throw new CliError("ARGUMENT_ERROR", "非交互环境执行删除操作时必须显式提供 --yes。");
   }
   const readline = createInterface({ input: process.stdin, output: process.stdout });
   try {
-    const target = resource ? `资源 ${resource}` : "全部缓存快照";
-    const answer = await readline.question(`确认删除${target}？此操作不可撤销 [y/N] `);
+    const answer = await readline.question(`确认${target}？此操作不可撤销 [y/N] `);
     if (!/^(y|yes)$/i.test(answer.trim())) {
-      throw new CliError("ARGUMENT_ERROR", "已取消缓存清理。");
+      throw new CliError("ARGUMENT_ERROR", "已取消操作。");
     }
   } finally {
     readline.close();
   }
 };
 
-export const buildCli = (config?: Partial<AppConfig>): { program: Command; services: Services } => {
+export const buildCli = (config?: Partial<AppConfig>): { program: Command; services: Services; config: AppConfig } => {
   const appConfig = loadConfig(config);
   const services = createServices(appConfig);
   const program = new Command();
@@ -208,9 +262,10 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
   program
     .name("catalog")
     .description("中国科学技术大学本科教务目录命令行客户端")
-    .version(CLI_VERSION_TEXT)
+    .version(CLI_VERSION_TEXT, "-V, --version", "显示版本信息")
     .option("--json", "输出规范化 JSON")
     .option("--csv", "输出规范化 CSV")
+    .option("--ics", "输出 iCalendar 日历，仅适用于教学班与考试列表")
     .option("--offline", "只读取缓存")
     .option("--no-cache", "跳过已有缓存并强制请求")
     .option("--cache-dir <path>", "覆盖 SQLite 缓存目录")
@@ -219,8 +274,21 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
     .option("--offset <n>", "跳过前 n 条记录", "0")
     .option("--all", "表格输出全部匹配记录")
     .option("--no-color", "关闭颜色")
+    .option("--wide", "表格列不截断，保留完整编号、日期和文本")
     .option("--quiet", "不输出提示")
     .option("--verbose", "输出诊断信息到 stderr");
+  program.helpOption("-h, --help", "显示帮助信息");
+  program.configureHelp({
+    styleTitle: (title: string) => ({
+      "Usage:": "用法：",
+      "Arguments:": "参数：",
+      "Options:": "选项：",
+      "Commands:": "命令：",
+    }[title] ?? title),
+  });
+  program.configureOutput({
+    outputError: () => undefined,
+  }).exitOverride();
 
   const semester = program.command("semester").description("学期列表");
   semester.command("list").action(async (_options: unknown, command: Command) => {
@@ -263,6 +331,17 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
       const result = await services.course.search(keyword, accessOptions(options), command.opts().includeInvalid);
       emitResult(result, options, 25, { tableRows: courseRows(result.value) });
     });
+  course.command("categories").description("列出网页课程分类代码").action((_opts: unknown, command: Command) => {
+    const options = cliOptions(command);
+    const result = services.course.categories();
+    const value = result.value.map((item) => ({
+      代码: item.code,
+      分类: item.name,
+      来源: item.kind === "quality" ? "综合素质接口" : item.kind === "school" ? "院系课程接口" : "公共课程接口",
+      来源ID: item.sourceIds.join("、"),
+    }));
+    emitResult({ ...result, value }, options, 50, { tableRows: value });
+  });
   course.command("show <codes...>").action(async (codes: string[], _opts: unknown, command: Command) => {
     const options = cliOptions(command);
     const result = await services.course.details(codes, accessOptions(options));
@@ -391,6 +470,15 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
         },
         accessOptions(options),
       );
+      if (options.ics) {
+        const semester = (await services.common.semesters(accessOptions(options))).value.find((item) => item.id === semesterId);
+        if (!semester) throw new CliError("REMOTE_NOT_FOUND", `找不到学期 ${semesterId}`);
+        const lessons = options.limit === undefined
+          ? result.value.slice(options.offset)
+          : result.value.slice(options.offset, options.offset + options.limit);
+        emitCalendarOutput(`USTC ${semester.nameZh} 教学班`, lessonCalendarEvents(lessons, semester), result.meta, options.offline, options.quiet);
+        return;
+      }
       emitResult(result, options, 25, { tableRows: lessonRows(result.value) });
     });
   lesson
@@ -402,8 +490,36 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
       const result = await services.lesson.details(codes, semesterId, accessOptions(options));
       emitResult(result, options, 25, { tableRows: lessonDetailRows(result.value) });
     });
+  lesson.command("conflicts <codes...>")
+    .requiredOption("--semester <id-or-code>", "学期 ID 或学期代码")
+    .description("检查指定公开教学班之间的可能时间冲突")
+    .action(async (codes: string[], _opts: unknown, command: Command) => {
+      const options = cliOptions(command);
+      const semesterId = await resolveSemester(services, command.opts().semester, options);
+      const details = await services.lesson.details(codes, semesterId, accessOptions(options));
+      const report = buildLessonConflictReport(details.value.map((item) => item.lesson));
+      const rows = report.conflicts.map((conflict) => ({
+        星期: conflict.dayName,
+        节次: conflict.periods.join("、"),
+        周次: conflict.weekText ?? "未知",
+        冲突教学班: conflict.lessons.map((lesson) => `${lesson.code} ${lesson.courseName}`).join("；"),
+      }));
+      emitResult({ ...details, value: report }, options, 50, { tableRows: rows, tableTotal: rows.length });
+      for (const lesson of report.unparsedLessons) {
+        process.stderr.write(`提示：教学班 ${lesson.code} 的上课时间无法解析，未纳入冲突判断。\n`);
+      }
+      if (report.conflicts.length === 0 && report.unparsedLessons.length === 0 && !options.quiet && options.format === "table") {
+        process.stdout.write("未发现输入教学班之间的可能时间冲突。\n");
+      }
+    });
 
   const classroom = program.command("classroom").description("教室使用情况");
+  classroom.command("buildings").description("列出网页教室楼栋代码").action((_opts: unknown, command: Command) => {
+    const options = cliOptions(command);
+    const result = services.classroom.buildings();
+    const rows = result.value.map((item) => ({ 楼栋代码: item.code, 楼栋: item.name, 教室数: item.rooms }));
+    emitResult({ ...result, value: rows }, options, 50, { tableRows: rows });
+  });
   classroom
     .command("list")
     .option("--date <YYYY-MM-DD>", "日期")
@@ -423,6 +539,27 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
           availableOnly: Boolean(opts.available),
           freePeriod,
         },
+        accessOptions(options),
+      );
+      emitResult(result, options, 25, { tableRows: classroomRows(result.value) });
+    });
+  classroom.command("available")
+    .description("查找指定时段空闲的教室")
+    .requiredOption("--from <HH:MM>", "空闲时段开始时间")
+    .requiredOption("--to <HH:MM>", "空闲时段结束时间")
+    .option("--date <YYYY-MM-DD>", "日期")
+    .option("--building <codes>", "楼栋代码，可用逗号分隔")
+    .option("--min-seats <n>", "最少座位数")
+    .action(async (_opts: unknown, command: Command) => {
+      const options = cliOptions(command);
+      const opts = command.opts();
+      const from = parseClock(opts.from, "开始时间");
+      const to = parseClock(opts.to, "结束时间", true);
+      if (to <= from) throw new CliError("ARGUMENT_ERROR", "结束时间必须晚于开始时间；跨午夜查询请拆成两条命令。");
+      const minSeats = opts.minSeats === undefined ? undefined : parsePositiveInteger(String(opts.minSeats));
+      const result = await services.classroom.list(
+        validDate(dateOrToday(opts.date)),
+        { building: buildingFilter(opts.building), availableBetween: { from, to }, minSeats },
         accessOptions(options),
       );
       emitResult(result, options, 25, { tableRows: classroomRows(result.value) });
@@ -496,6 +633,14 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
         },
         accessOptions(options),
       );
+      if (options.ics) {
+        const semester = (await services.common.semesters(accessOptions(options))).value.find((item) => item.id === semesterId);
+        const exams = options.limit === undefined
+          ? result.value.slice(options.offset)
+          : result.value.slice(options.offset, options.offset + options.limit);
+        emitCalendarOutput(`USTC ${semester?.nameZh ?? `学期 ${semesterId}`} 考试`, examCalendarEvents(exams), result.meta, options.offline, options.quiet);
+        return;
+      }
       emitResult(result, options, 25, { tableRows: examRows(result.value) });
     });
   exam
@@ -575,7 +720,7 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
     .action(async (_opts: unknown, command: Command) => {
       const options = cliOptions(command);
       const resource = cacheResource(command.opts().resource as string | undefined);
-      await confirmCacheClear(options, Boolean(command.opts().yes), resource);
+      await confirmDestructiveAction(options, Boolean(command.opts().yes), resource ? `删除资源 ${resource} 的缓存快照` : "删除全部缓存快照");
       const removed = services.repository.clear(resource);
       if (options.format === "table") {
         emitMessage(`已清理 ${removed} 条缓存快照。`);
@@ -599,5 +744,133 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
       );
     });
 
-  return { program, services };
+  cache.command("prefetch")
+    .description("预先缓存学期教学班、考试及指定日期教室数据")
+    .option("--semester <id-or-code>", "学期 ID 或代码；省略时使用默认学期")
+    .option("--date <YYYY-MM-DD>", "预取教室日期，可重复指定", (value: string, previous: string[] = []) => [...previous, value], [])
+    .action(async (_opts: unknown, command: Command) => {
+      const options = cliOptions(command);
+      if (options.offline) throw new CliError("ARGUMENT_ERROR", "缓存预取需要联网，请移除 --offline。");
+      const opts = command.opts();
+      const dates = (opts.date as string[]).map((date) => validDate(date));
+      const semesterId = opts.semester ? await resolveSemester(services, opts.semester, options) : undefined;
+      const result = await prefetchSnapshots(services, accessOptions(options), semesterId, dates);
+      emitResult(result, options, 1, {
+        tableRows: [{ 学期: result.value.semester.nameZh, 查询数: result.value.queries, 资源: result.value.queriedResources.join("、"), 日期: dates.join("、") }],
+        tableTotal: 1,
+      });
+    });
+
+  cache.command("prune")
+    .description("删除早于指定时间的缓存快照")
+    .requiredOption("--older-than <duration>", "保留最近时长，例如 30d、12h")
+    .option("--resource <name>", "只清理一个缓存资源")
+    .option("--yes", "确认删除，不进行交互确认")
+    .action(async (_opts: unknown, command: Command) => {
+      const options = cliOptions(command);
+      const opts = command.opts();
+      const age = String(opts.olderThan).match(/^(\d{1,4})([dh])$/);
+      if (!age || Number(age[1]) < 1 || Number(age[1]) > 3650) {
+        throw new CliError("ARGUMENT_ERROR", "--older-than 使用 1–3650d 或 1–3650h。");
+      }
+      const resource = cacheResource(opts.resource as string | undefined);
+      const milliseconds = Number(age[1]) * (age[2] === "d" ? 86400000 : 3600000);
+      const cutoff = new Date(Date.now() - milliseconds).toISOString();
+      await confirmDestructiveAction(options, Boolean(opts.yes), `删除 ${cutoff} 之前的缓存快照`);
+      const removed = pruneSnapshots(services, cutoff, resource);
+      emitResult({
+        meta: { resource: "cache", scope: "prune", source: "cache", fetchedAt: new Date().toISOString(), dataAsOf: cutoff, stale: false },
+        data: { removed, resource: resource ?? null, olderThan: cutoff },
+      }, options, 1, { tableRows: [{ 删除数量: removed, 时间界限: cutoff, 资源: resource ?? "全部" }], tableTotal: 1 });
+    });
+
+  const doctor = program.command("doctor").description("检查运行环境、缓存目录和网站连接");
+  doctor.action(async (_opts: unknown, command: Command) => {
+    const options = cliOptions(command);
+    const checks = await runDiagnostics(appConfig, options.offline);
+    const rows = checks.map((check) => ({
+      检查项: check.name,
+      状态: check.status === "ok" ? "正常" : check.status === "warning" ? "提示" : "异常",
+      详情: check.detail,
+    }));
+    emitResult({
+      meta: { resource: "doctor", scope: options.offline ? "offline" : "online", source: options.offline ? "static" : "mixed", fetchedAt: new Date().toISOString(), stale: false },
+      data: checks,
+    }, options, 20, { tableRows: rows, tableTotal: rows.length });
+    if (checks.some((check) => check.status === "error")) process.exitCode = 1;
+  });
+
+  const completion = program.command("completion").description("生成 shell 命令补全脚本");
+  completion.command("show <shell>")
+    .description("显示指定 shell 的补全脚本；可用 bash、zsh、fish、powershell")
+    .action((shell: string) => {
+      try {
+        process.stdout.write(shellCompletion(shell));
+      } catch {
+        throw new CliError("ARGUMENT_ERROR", "Shell 只能是 bash、zsh、fish 或 powershell。");
+      }
+    });
+
+  const presets = new PresetStore(defaultConfigDir());
+  const preset = program.command("preset").description("保存和重复运行公开只读查询");
+  preset.command("list").action(async (_opts: unknown, command: Command) => {
+    const options = cliOptions(command);
+    const result = await presets.list();
+    const rows = result.map((item) => ({ 名称: item.name, 查询: item.args.join(" "), 更新时间: item.updatedAt }));
+    emitResult({
+      meta: { resource: "presets", scope: "all", source: "static", fetchedAt: new Date().toISOString(), stale: false },
+      data: result,
+    }, options, 50, { tableRows: rows, tableTotal: rows.length });
+  });
+  preset.command("save <name> <query...>")
+    .allowUnknownOption()
+    .option("--replace", "覆盖同名预设")
+    .action(async (name: string, query: string[], _opts: unknown, command: Command) => {
+      const options = cliOptions(command);
+      const saved = await presets.save(name, query, Boolean(command.opts().replace));
+      emitResult({
+        meta: { resource: "presets", scope: name, source: "static", fetchedAt: saved.updatedAt, stale: false },
+        data: saved,
+      }, options, 1, { tableRows: [{ 名称: saved.name, 查询: saved.args.join(" "), 更新时间: saved.updatedAt }], tableTotal: 1 });
+    });
+  preset.command("run <name>").action(async (name: string, _opts: unknown, command: Command) => {
+    const options = cliOptions(command);
+    const saved = await presets.get(name);
+    const args = ["--cache-dir", appConfig.cacheDir, "--timeout", String(appConfig.timeoutMs)];
+    if (options.format !== "table") args.push(`--${options.format}`);
+    if (options.offline) args.push("--offline");
+    if (options.noCache) args.push("--no-cache");
+    if (options.all) args.push("--all");
+    if (options.noColor) args.push("--no-color");
+    if (options.wide) args.push("--wide");
+    if (options.quiet) args.push("--quiet");
+    if (options.verbose) args.push("--verbose");
+    if (options.limit !== undefined) args.push("--limit", String(options.limit));
+    if (options.offset > 0) args.push("--offset", String(options.offset));
+    emitPresetProcess([...args, ...saved.args], options.format, options.ics);
+  });
+  preset.command("delete <name>")
+    .option("--yes", "确认删除，不进行交互确认")
+    .action(async (name: string, _opts: unknown, command: Command) => {
+      const options = cliOptions(command);
+      await presets.get(name);
+      await confirmDestructiveAction(options, Boolean(command.opts().yes), `删除查询预设“${name}”`);
+      const removed = await presets.delete(name);
+      emitResult({
+        meta: { resource: "presets", scope: name, source: "static", fetchedAt: new Date().toISOString(), stale: false },
+        data: { removed, name },
+      }, options, 1, { tableRows: [{ 名称: name, 已删除: removed ? "是" : "否" }], tableTotal: 1 });
+    });
+
+  program.hook("preAction", (_root, actionCommand) => {
+    if (!program.opts().ics) return;
+    const parent = actionCommand.parent;
+    const isCalendarList = actionCommand.name() === "list" && parent && ["lesson", "exam"].includes(parent.name());
+    const isPresetRun = actionCommand.name() === "run" && parent?.name() === "preset";
+    if (!isCalendarList && !isPresetRun) {
+      throw new CliError("ARGUMENT_ERROR", "--ics 只适用于 catalog lesson list 和 catalog exam list。");
+    }
+  });
+
+  return { program, services, config: appConfig };
 };

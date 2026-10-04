@@ -108,6 +108,13 @@ export class CacheDatabase {
     return this.db.prepare("DELETE FROM snapshots").run().changes;
   }
 
+  pruneBefore(fetchedAt: string, resource?: string): number {
+    if (resource) {
+      return this.db.prepare("DELETE FROM snapshots WHERE resource = ? AND fetched_at < ?").run(resource, fetchedAt).changes;
+    }
+    return this.db.prepare("DELETE FROM snapshots WHERE fetched_at < ?").run(fetchedAt).changes;
+  }
+
   stats(): SnapshotStat[] {
     return this.db
       .prepare(

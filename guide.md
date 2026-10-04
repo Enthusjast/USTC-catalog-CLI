@@ -1,7 +1,7 @@
 # USTC Catalog CLI 使用说明
 
-- 版本：0.2.1
-- 文档日期：2026-08-26
+- 版本：0.2.2
+- 文档日期：2026-10-04
 - 命令名：catalog
 - 语言：中文
 - 运行环境：Node.js >=20.18.1
@@ -78,6 +78,7 @@ catalog calendar
 catalog course search <keyword>
 catalog course show <code...>
 catalog course list <category>
+catalog course categories
 
 catalog program catalog [keyword]
 catalog program document <code>
@@ -88,7 +89,10 @@ catalog program module <id>
 
 catalog lesson list
 catalog lesson show <code...>
+catalog lesson conflicts <code...>
 
+catalog classroom available
+catalog classroom buildings
 catalog classroom list
 catalog classroom show <room>
 catalog classroom week
@@ -101,6 +105,11 @@ catalog substitute summary
 
 catalog cache status
 catalog cache clear
+catalog cache prefetch
+catalog cache prune
+catalog doctor
+catalog completion show <shell>
+catalog preset list|save|run|delete
 ```
 
 ## 4. 全局选项
@@ -111,6 +120,7 @@ catalog cache clear
 | --- | --- |
 | `--json` | 输出规范化 JSON |
 | `--csv` | 输出 UTF-8 CSV，带 BOM |
+| `--ics` | 将教学班或考试列表导出为 iCalendar；与 JSON、CSV 互斥 |
 | `--offline` | 只读取本地缓存，不访问网络 |
 | `--no-cache` | 不读取已有快照，强制请求；成功后仍写入缓存 |
 | `--cache-dir <path>` | 指定 SQLite 缓存目录 |
@@ -119,6 +129,7 @@ catalog cache clear
 | `--offset <n>` | 跳过前 n 条记录，默认 0 |
 | `--all` | 表格输出全部记录 |
 | `--no-color` | 关闭表格颜色 |
+| `--wide` | 表格列不截断完整字段 |
 | `--quiet` | 不输出普通提示和缓存回退警告 |
 | `--verbose` | 将网络、缓存和回退诊断写入 stderr |
 
@@ -127,12 +138,12 @@ catalog cache clear
 执行 `catalog --version` 会输出产品名和版本号，例如：
 
 ```text
-USTC-catalog-CLI 0.2.1
+USTC-catalog-CLI 0.2.2
 ```
 
 ### 4.1 选项约束
 
-- `--json` 与 `--csv` 互斥；
+- `--json`、`--csv` 与 `--ics` 三者互斥；
 - `--offline` 与 `--no-cache` 互斥；
 - `--limit`、`--offset` 必须是非负整数；
 - `--timeout` 必须是正整数。
@@ -141,6 +152,7 @@ USTC-catalog-CLI 0.2.1
 
 ```bash
 catalog --json --csv course search 数学
+catalog --json --ics lesson list --semester 461
 catalog --offline --no-cache course search 数学
 ```
 
@@ -168,6 +180,7 @@ catalog --offline --no-cache course search 数学
 - 对于嵌套 JSON，`--limit` 作用于最外层数组，不会截断组内的 courses 或模块内课程；
 - 对于表格，CLI 使用扁平化后的表格行数。
 - 对于对象型详情，`--offset` 大于 0 会返回参数错误；`--limit` 不截断对象。
+- 表格型详情由多个课程或模块行展开时，按默认页数分页；标识列如课程编号、日期和教室号保持完整。`--wide` 取消表格列宽截断。
 
 例如，课程分类 JSON 的顶层记录是课程分组，而表格的记录是课程：
 
@@ -374,6 +387,17 @@ CSV 行使用人类可读表格的扁平字段，而不是 JSON 的全部嵌套�
 
 `--json` 与 `--csv` 不能同时使用。
 
+### 6.4 iCalendar
+
+教学班和考试列表可导出 `.ics`：
+
+```bash
+catalog --ics lesson list --semester 461 --course 数学 > math.ics
+catalog --ics exam list --semester 461 > exams.ics
+```
+
+教学班的周次和节次按学期开始日期展开为亚洲/上海时区活动；考试使用 API 日期和起止时间，缺少考试时间的记录会作为整日活动导出。日期或时间非法、或教学时间无法解析的记录会跳过并在 stderr 提示数量。若活动数超过 20,000 条，导出会报错并要求缩小筛选范围。ICS 只包含公开课程和考试信息，不包含个人课表。
+
 ## 7. 课程目录
 
 ### 7.1 course search
@@ -485,6 +509,7 @@ catalog course list department --department <id[,id...]>
 ```bash
 catalog course list ma
 catalog course list 001
+catalog course categories
 catalog course list department --department 2,5,6,61
 ```
 
@@ -768,6 +793,21 @@ catalog --json lesson show 001101.01 --semester 461
 
 该命令调用教学班详情接口，输出 LessonDetail 模型。JSON data 包含 lesson 和 course 两层：lesson 保留接口实际返回的教学班编号、课程名、学分、课堂类型、开课单位、教师、班级、地点、周次、选课人数和考核方式等字段；course 保留课程教材、简介和 syllabus。接口若没有返回教师、班级或时间地点字段，teachingClassDataAvailable 会为 false，CLI 不会伪造这些数据。详情数据作用域包含学期和教学班编号。
 
+### 10.3 lesson conflicts
+
+语法：
+
+```bash
+catalog lesson conflicts <code...> --semester <id-or-code>
+```
+
+冲突检查只比较用户明确提供的公开教学班。它按星期、节次和可解析周次判断是否重叠；不会推断选课学生关系。数据中缺少可解析上课时间或周次时，CLI 会在 stderr 报告未参与判断的教学班。
+
+```bash
+catalog lesson conflicts MATH1001.01 PHYS1001.01 --semester 461
+catalog --json lesson conflicts MATH1001.01 PHYS1001.01 --semester 461
+```
+
 ## 11. 教室使用情况
 
 ### 11.1 classroom list
@@ -786,7 +826,7 @@ catalog classroom list [options]
 | `--building <code[,code...]>` | 一个或多个楼栋代码 |
 | `--keyword <text>` | 房间号、课程编号、课程名、教师、申请人或主办方关键词 |
 | `--available` | 只保留当天没有使用记录的房间 |
-| `--free-period <n>` | 只保留指定教学节次空闲的房间；0 表示全天空闲 |
+| `--free-period <n|noon|evening>` | 只保留指定教学节次空闲的房间；0 表示全天空闲 |
 
 示例：
 
@@ -797,7 +837,23 @@ catalog classroom list --date 2026-08-26 --building 1,2,3
 catalog classroom list --date 2026-08-26 --keyword MATH1001
 catalog classroom list --date 2026-08-26 --available
 catalog classroom list --date 2026-08-26 --free-period 3
+catalog classroom list --date 2026-08-26 --free-period noon
+catalog classroom list --date 2026-08-26 --free-period evening
 ```
+
+`--free-period` 接受数字 `0..13`、`noon` 或 `evening`；后两者对应网页的中午和傍晚时段。楼栋清单来自当前网页的可选楼栋代码：
+
+```bash
+catalog classroom buildings
+```
+
+查找一段连续的空闲时间，并可按最小座位数筛选：
+
+```bash
+catalog classroom available --date 2026-08-26 --from 14:00 --to 16:00 --building 1,2 --min-seats 30
+```
+
+时间区间按 `[开始, 结束)` 判断，结束时间必须晚于开始时间。跨午夜时分成两次查询。区间使用课表 API 的记录时间，不会将节次边界当成精确空闲时间。
 
 楼栋代码示例：
 
@@ -1048,7 +1104,60 @@ catalog cache clear --resource timetable --yes
 
 该命令删除快照行，不删除数据库目录本身，也不删除用户其他文件。
 
-## 16. 错误和退出码
+### 15.3 cache prefetch
+
+联网预取指定学期的教学班和考试数据；可重复指定日期以预取教室使用数据：
+
+```bash
+catalog cache prefetch --semester 461
+catalog cache prefetch --semester 461 --date 2026-08-26 --date 2026-08-27
+```
+
+省略学期时使用当前默认学期。预取只访问公开只读接口并写入本地缓存，不执行教务系统操作；`--offline` 与预取互斥。
+
+### 15.4 cache prune
+
+按快照抓取时间清理旧记录。支持日和小时，范围为 1 到 3650 天或小时：
+
+```bash
+catalog cache prune --older-than 30d
+catalog cache prune --older-than 12h --resource lessons --yes
+```
+
+该命令删除早于截止时间的快照行，并沿用 `cache clear` 的确认规则。
+
+## 16. 环境诊断、命令补全和预设
+
+`doctor` 检查 Node.js 版本、SQLite 模块、缓存目录权限，以及网站公开接口状态：
+
+```bash
+catalog doctor
+catalog --offline doctor
+```
+
+`completion show` 将对应脚本输出到 stdout，可追加到 shell 配置文件：
+
+```bash
+catalog completion show zsh
+catalog completion show bash
+catalog completion show fish
+catalog completion show powershell
+```
+
+查询预设保存为用户配置目录下的 JSON 文件。用 `--` 分隔预设名和查询命令；预设只接受公开只读查询，缓存目录和输出方式由运行时参数决定：
+
+```bash
+catalog preset save 数学课 -- lesson list --semester 461 --course 数学
+catalog preset list
+catalog preset run 数学课 --json
+catalog --ics preset run 数学课 > math.ics
+catalog preset save 数学课 --replace -- lesson list --semester 461 --course 数学分析
+catalog preset delete 数学课 --yes
+```
+
+`preset delete` 是删除操作，非交互环境需要 `--yes`。预设保存查询参数，不保存认证信息、缓存目录或命令输出格式。
+
+## 17. 错误和退出码
 
 错误统一写 stderr，格式：
 
@@ -1082,7 +1191,7 @@ RESTRICTED
 CACHE_ERROR
 ```
 
-### 16.1 网站限制模式
+### 17.1 网站限制模式
 
 在线数据命令会先请求 /api/restricted。如果网站要求统一认证，CLI 返回 RESTRICTED，不会执行 CAS 登录，也不会保存认证令牌。
 
@@ -1093,7 +1202,7 @@ CACHE_ERROR
 
 `--offline` 不需要访问限制接口，但必须已有对应数据快照。
 
-## 17. stdout、stderr 和脚本集成
+## 18. stdout、stderr 和脚本集成
 
 适合脚本的约定：
 
@@ -1129,7 +1238,7 @@ catalog --json --verbose lesson list --semester 461 \
   2> lessons.trace
 ```
 
-## 18. 当前边界
+## 19. 当前边界
 
 - CLI 只支持中文，不提供网页的 English 切换；
 - CLI 不实现 CAS 登录、个人课表、选课、退课或写入教务数据；
@@ -1138,14 +1247,14 @@ catalog --json --verbose lesson list --semester 461 \
 - CSV 面向表格使用，不保证保留 JSON 的全部嵌套结构；
 - `program show <id>` 使用 API 计划 ID，例如 3430；`program document <code>` 使用静态网页代码，例如 001001，两者不能混用。
 
-## 19. MCP 服务
+## 20. MCP 服务
 
-### 19.1 启动和配置
+### 20.1 启动和配置
 
 从 0.2.0 开始，npm 包同时提供 `catalog-mcp` 命令。它使用本地 stdio 传输，适用于 Claude Desktop、Cursor、VS Code 等支持 MCP 的客户端：
 
 ```bash
-npm install --global ustc-catalog-cli@0.2.1
+npm install --global ustc-catalog-cli@0.2.2
 catalog-mcp
 ```
 
@@ -1171,7 +1280,7 @@ MCP 客户端配置示例：
       "args": [
         "--yes",
         "--package",
-        "ustc-catalog-cli@0.2.1",
+        "ustc-catalog-cli@0.2.2",
         "catalog-mcp"
       ]
     }
@@ -1181,7 +1290,7 @@ MCP 客户端配置示例：
 
 MCP 服务会为每次工具调用启动一个 `catalog --json` 子进程，使用参数数组执行，不经过 shell。最多同时运行 3 个子进程，超出的请求排队。
 
-### 19.2 环境变量
+### 20.2 环境变量
 
 MCP 服务会继承 CLI 的配置环境变量：
 
@@ -1190,19 +1299,20 @@ MCP 服务会继承 CLI 的配置环境变量：
 | `CATALOG_BASE_URL` | 覆盖 catalog 网站地址 | `https://catalog.ustc.edu.cn` |
 | `CATALOG_CACHE_DIR` | 指定 SQLite 缓存目录 | 系统用户缓存目录 |
 | `CATALOG_TIMEOUT_MS` | CLI 单次网络请求超时时间 | `15000` |
-| `CATALOG_USER_AGENT` | 覆盖 HTTP User-Agent | `ustc-catalog-cli/0.2.1` |
+| `CATALOG_USER_AGENT` | 覆盖 HTTP User-Agent | `ustc-catalog-cli/0.2.2` |
 | `CATALOG_MCP_PROCESS_TIMEOUT_MS` | MCP 子进程总超时时间 | `120000` |
 
 `CATALOG_CACHE_DIR` 应配置在 MCP 服务的 `env` 中，不作为模型可修改的工具参数。MCP 工具不暴露 `cache clear`。
 
-### 19.3 工具清单
+### 20.3 工具清单
 
-MCP 共提供 22 个只读工具：
+MCP 共提供 26 个只读工具：
 
 | 工具 | 对应 CLI 命令 | 用途 |
 | --- | --- | --- |
 | `ustc_semester_list` | `semester list` | 学期列表 |
 | `ustc_department_list` | `department list` | 院系树 |
+| `ustc_course_categories` | `course categories` | 网页课程分类代码 |
 | `ustc_calendar` | `calendar` | 教学日历公开状态 |
 | `ustc_course_search` | `course search` | 课程搜索 |
 | `ustc_course_list` | `course list` | 课程分类目录 |
@@ -1215,7 +1325,10 @@ MCP 共提供 22 个只读工具：
 | `ustc_program_module` | `program module` | 培养方案模块 |
 | `ustc_lesson_list` | `lesson list` | 全校教学班 |
 | `ustc_lesson_show` | `lesson show` | 教学班详情 |
+| `ustc_lesson_conflicts` | `lesson conflicts` | 指定教学班的可能时间冲突 |
+| `ustc_classroom_buildings` | `classroom buildings` | 楼栋代码和教室数量 |
 | `ustc_classroom_list` | `classroom list` | 单日教室使用情况 |
+| `ustc_classroom_available` | `classroom available` | 指定时段空闲教室 |
 | `ustc_classroom_show` | `classroom show` | 单个教室 |
 | `ustc_classroom_week` | `classroom week` | 一周教室使用情况 |
 | `ustc_exam_list` | `exam list` | 考试列表 |
@@ -1235,7 +1348,7 @@ MCP 共提供 22 个只读工具：
 
 `offline` 和 `noCache` 不能同时使用。MCP 固定使用 JSON，因此不提供 `json`、`csv`、`noColor`、`quiet`、`verbose` 和 `all` 参数；JSON/CSV 的 CLI 规则见第 6 节。
 
-### 19.4 工具参数
+### 20.4 工具参数
 
 除公共参数外，各工具使用以下业务参数：
 
@@ -1251,7 +1364,9 @@ MCP 共提供 22 个只读工具：
 | `ustc_program_module` | `id: integer`；`courses?: boolean` |
 | `ustc_lesson_list` | `semester?: string\|integer`、`department?: string`、`education?: string`、`course?: string`、`teacher?: string`、`location?: string`、`span?: string`、`courseType?: string`、`courseClassify?: string`、`sort?: code\|course\|department\|teacher\|location\|students`、`desc?: boolean` |
 | `ustc_lesson_show` | `codes: string[]`；`semester: string\|integer` |
-| `ustc_classroom_list` | `date?: YYYY-MM-DD`、`building?: string`、`keyword?: string`、`available?: boolean`、`freePeriod?: 0..13` |
+| `ustc_lesson_conflicts` | `codes: string[]`（至少两个）；`semester: string\|integer` |
+| `ustc_classroom_list` | `date?: YYYY-MM-DD`、`building?: string`、`keyword?: string`、`available?: boolean`、`freePeriod?: 0..13\|noon\|evening` |
+| `ustc_classroom_available` | `date?: YYYY-MM-DD`、`from: HH:MM`、`to: HH:MM`、`building?: string`、`minSeats?: integer` |
 | `ustc_classroom_show` | `room: string`；`date?: YYYY-MM-DD` |
 | `ustc_classroom_week` | `date?: YYYY-MM-DD`；`building?: string` |
 | `ustc_exam_list` | `semester?: string\|integer`、`type?: string`、`education?: string`、`department?: string`、`grade?: string`、`building?: string`、`date?: YYYY-MM-DD`、`course?: string`、`teacher?: string`、`location?: string`、`className?: string`、`span?: morning\|afternoon\|evening`、`sort?: course\|department\|teacher\|location\|date\|time\|class`、`desc?: boolean` |
@@ -1260,7 +1375,7 @@ MCP 共提供 22 个只读工具：
 
 `semester list`、`department list`、`calendar`、`program history`、`substitute summary` 和 `cache status` 不需要业务参数。`ustc_substitute_list` 的 `multiple` 与 `single` 互斥。
 
-### 19.5 返回结构
+### 20.5 返回结构
 
 成功时，MCP 工具同时返回 `structuredContent` 和文本形式的 JSON。两者内容相同：
 

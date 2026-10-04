@@ -8,17 +8,20 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+const npmCli = process.env.npm_execpath;
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ustc-catalog-package-smoke-"));
 const packageDir = path.join(tempDir, "package");
 fs.mkdirSync(packageDir);
 
-const run = (args, options = {}) => execFileSync(npm, args, {
-  cwd: root,
-  encoding: "utf8",
-  stdio: "pipe",
-  ...options,
-});
+const run = (args, options = {}) => {
+  if (!npmCli) throw new Error("请通过 npm run package:smoke 启动此脚本，以便定位当前 npm CLI。");
+  return execFileSync(process.execPath, [npmCli, ...args], {
+    cwd: root,
+    encoding: "utf8",
+    stdio: "pipe",
+    ...options,
+  });
+};
 
 try {
   const packed = JSON.parse(run(["pack", "--ignore-scripts", "--json", "--pack-destination", packageDir]));
@@ -52,6 +55,24 @@ try {
   assert.equal(envelope.meta.source, "static");
   assert.equal(envelope.data.length, 1);
 
+  const presetEnvironment = { ...process.env, XDG_CONFIG_HOME: path.join(tempDir, "config") };
+  execFileSync(process.execPath, [cliEntry, "preset", "save", "静态目录", "--", "course", "categories"], {
+    cwd: tempDir,
+    env: presetEnvironment,
+    stdio: "pipe",
+  });
+  const presetOutput = execFileSync(process.execPath, [cliEntry, "--json", "preset", "run", "静态目录"], {
+    cwd: tempDir,
+    env: presetEnvironment,
+    encoding: "utf8",
+  });
+  assert.ok(JSON.parse(presetOutput).data.length > 0);
+  assert.throws(() => execFileSync(process.execPath, [cliEntry, "--ics", "preset", "run", "静态目录"], {
+    cwd: tempDir,
+    env: presetEnvironment,
+    stdio: "pipe",
+  }), (error) => error.status === 2 && error.stderr.toString().includes("--ics 只适用于"));
+
   const client = new Client({ name: "ustc-catalog-package-smoke", version: "1.0.0" });
   const transport = new StdioClientTransport({
     command: process.execPath,
@@ -62,7 +83,7 @@ try {
   try {
     await client.connect(transport);
     const tools = await client.listTools();
-    assert.equal(tools.tools.length, 22);
+    assert.equal(tools.tools.length, 26);
   } finally {
     await client.close().catch(() => undefined);
   }

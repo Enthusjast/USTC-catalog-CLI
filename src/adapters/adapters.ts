@@ -12,6 +12,7 @@ import type {
   LessonDetail,
   LessonLocation,
   LessonSpan,
+  LessonConflict,
   ProgramCourse,
   ProgramDetail,
   ProgramModule,
@@ -22,6 +23,7 @@ import type {
   TimetableData,
   ExamRange,
 } from "../domain/models.js";
+import { scheduleSpansConflict, timeToMinutes } from "../domain/schedule.js";
 
 type AnyRecord = Record<string, any>;
 
@@ -330,16 +332,19 @@ const scheduleSpans = (value: unknown): LessonSpan[] => {
   const text = stringValue(value);
   const spans: LessonSpan[] = [];
   for (const line of text.split(/\r?\n/)) {
-    const match = line.trim().match(/^(.*?)周\s+[^:]*:\s*([1-7])\(([^)]+)\)/);
+    const trimmed = line.trim();
+    const weeksMatch = trimmed.match(/^(.*?)周\s+/);
+    const weeks = weeksMatch?.[1]?.trim() || undefined;
+    const scheduleText = weeksMatch ? trimmed.slice(weeksMatch[0].length) : trimmed;
+    const match = scheduleText.match(/(?:^|[:：\s])([1-7])\(([^)]+)\)/);
     if (!match) continue;
+    const periods = match[2].split(/[，,、]/).map((item) => Number(item.trim()));
+    if (periods.some((period) => !Number.isInteger(period) || period < 1 || period > 13)) continue;
     spans.push({
-      text: line.trim(),
-      weeks: match[1],
-      day: Number(match[2]),
-      periods: match[3]
-        .split(",")
-        .map((item) => Number(item))
-        .filter(Number.isFinite),
+      text: trimmed,
+      weeks,
+      day: Number(match[1]),
+      periods,
     });
   }
   return spans;
@@ -475,7 +480,13 @@ export const filterLessons = (lessons: Lesson[], filters: LessonFilters): Lesson
       ),
     );
   }
-  if (filters.span) result = result.filter((item) => item.spans.some((span) => span.text === filters.span));
+  if (filters.span) {
+    const normalized = filters.span.trim().match(/^([1-7])\s*\(([^)]+)\)$/);
+    const requested = normalized?.[2].split(/[，,、]/).map(Number) ?? [];
+    result = result.filter((item) => item.spans.some((span) => normalized
+      ? span.day === Number(normalized[1]) && requested.every((period) => span.periods.includes(period))
+      : span.text === filters.span));
+  }
   return result;
 };
 
@@ -747,8 +758,10 @@ const usageType = (key: string): ClassroomUsage["usageType"] => {
 };
 
 const timeText = (value: unknown): string => {
-  const text = stringValue(value);
-  return text === ":0" ? "00:00" : text;
+  const text = stringValue(value).trim();
+  if (text === ":0" || text === "0:0" || text === "00:0") return "00:00";
+  const match = text.match(/^(\d{1,2}):(\d{1,2})$/);
+  return match ? `${match[1].padStart(2, "0")}:${match[2].padStart(2, "0")}` : text;
 };
 
 const personName = (value: unknown): string => {
@@ -841,8 +854,12 @@ const mergeUsage = (target: ClassroomUsage, source: ClassroomUsage): void => {
   target.courseIds = [...new Set([...target.courseIds, ...source.courseIds])];
   target.teachers = [...new Set([...target.teachers, ...source.teachers])];
   target.classes = [...new Set([...target.classes, ...source.classes])];
-  if (source.start < target.start) target.start = source.start;
-  if (source.end > target.end) target.end = source.end;
+  const targetStart = timeToMinutes(target.start);
+  const sourceStart = timeToMinutes(source.start);
+  const targetEnd = timeToMinutes(target.end);
+  const sourceEnd = timeToMinutes(source.end);
+  if (targetStart !== undefined && sourceStart !== undefined && sourceStart < targetStart) target.start = source.start;
+  if (targetEnd !== undefined && sourceEnd !== undefined && sourceEnd > targetEnd) target.end = source.end;
   if (source.courseName && target.courseName && !target.courseName.includes(source.courseName)) {
     target.courseName = `${target.courseName}，${source.courseName}`;
   }
@@ -854,10 +871,11 @@ export const mergeClassroomUsages = (usages: ClassroomUsage[]): ClassroomUsage[]
   for (const usage of usages) {
     const current = grouped.get(usage.classroomCode) ?? [];
     const match = current.find((item) =>
+      item.usageType === usage.usageType &&
       item.courseName === usage.courseName &&
       (sameCourse(item, usage) ||
-        (item.usageType === "temporary" && usage.usageType === "temporary" && item.applicant === usage.applicant) ||
-        overlap(item.channels, usage.channels)),
+        (item.usageType === "temporary" && usage.usageType === "temporary" &&
+          item.applicant === usage.applicant && overlap(item.channels, usage.channels))),
     );
     if (match) mergeUsage(match, usage);
     else if (
@@ -896,6 +914,34 @@ export const mergeClassroomUsages = (usages: ClassroomUsage[]): ClassroomUsage[]
   return split.sort(
     (a, b) => a.classroomCode.localeCompare(b.classroomCode) || a.start.localeCompare(b.start),
   );
+};
+
+export const findLessonConflicts = (lessons: Lesson[]): LessonConflict[] => {
+  const conflicts: LessonConflict[] = [];
+  for (let leftIndex = 0; leftIndex < lessons.length; leftIndex += 1) {
+    const left = lessons[leftIndex];
+    for (let rightIndex = leftIndex + 1; rightIndex < lessons.length; rightIndex += 1) {
+      const right = lessons[rightIndex];
+      for (const leftSpan of left.spans) {
+        for (const rightSpan of right.spans) {
+          if (!scheduleSpansConflict(leftSpan, rightSpan) || leftSpan.day === undefined) continue;
+          conflicts.push({
+            day: leftSpan.day,
+            dayName: ["", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"][leftSpan.day],
+            periods: [...new Set(leftSpan.periods.filter((period) => rightSpan.periods.includes(period)))].sort((a, b) => a - b),
+            weekText: leftSpan.weeks === rightSpan.weeks ? leftSpan.weeks : `${leftSpan.weeks ?? "未知周次"} ∩ ${rightSpan.weeks ?? "未知周次"}`,
+            lessons: [left, right].map((lesson) => ({
+              code: lesson.code,
+              courseCode: lesson.courseCode,
+              courseName: lesson.courseName,
+              teachers: lesson.teachers,
+            })),
+          });
+        }
+      }
+    }
+  }
+  return conflicts;
 };
 
 export const normalizeTimetableData = (input: unknown): TimetableData => {

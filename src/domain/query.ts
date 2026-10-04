@@ -1,4 +1,4 @@
-import type { QueryOptions } from "./models.js";
+import type { FreePeriod, QueryOptions } from "./models.js";
 
 export const RESOURCE_NAMES = [
   "course-search",
@@ -26,6 +26,8 @@ export const CACHE_RESOURCE_NAMES = RESOURCE_NAMES.filter(
   (resource): resource is Exclude<ResourceName, "program-catalog"> => resource !== "program-catalog",
 );
 
+export const CACHE_RESOURCES = CACHE_RESOURCE_NAMES;
+
 export type LessonFilter = {
   semesterId: number;
   department?: string;
@@ -42,7 +44,8 @@ export type ClassroomFilter = {
   date: string;
   building?: string;
   keyword?: string;
-  freePeriod?: number;
+  freePeriod?: FreePeriod;
+  availableBetween?: { from: number; to: number };
   availableOnly?: boolean;
 };
 

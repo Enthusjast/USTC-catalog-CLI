@@ -11,6 +11,7 @@ export type OutputOptions = {
   offset: number;
   all: boolean;
   noColor: boolean;
+  wide?: boolean;
   quiet: boolean;
 };
 
@@ -102,10 +103,10 @@ export const emitResult = <T>(
   }
 
   const rows = payload.tableRows
-    ? isArray ? sliceRows(payload.tableRows, options, pageSize) : payload.tableRows
+    ? sliceRows(payload.tableRows, options, pageSize)
     : normalizeRows(selected);
   if (options.format === "csv") {
-    const columns = columnsFor(rows);
+    const columns = columnsFor(payload.tableRows ?? rows);
     process.stdout.write(stringify(rows, { header: true, columns, bom: true }));
     return;
   }
@@ -118,15 +119,21 @@ export const emitResult = <T>(
   const columns = columnsFor(rows);
   const table = new Table({
     head: options.noColor ? columns : columns.map((column) => chalk.cyan(column)),
+    style: options.noColor ? { head: [], border: [] } : undefined,
     wordWrap: true,
-    colWidths: columns.map((column) => Math.min(32, Math.max(10, column.length + 4))),
+    colWidths: columns.map((column) => {
+      const naturalWidth = Math.max(column.length, ...rows.map((row) => String(row[column] ?? "").length)) + 4;
+      const identityColumn = /编号|代码|日期|时间|课堂号|考试ID|教室|学期ID/.test(column);
+      return options.wide || identityColumn ? Math.max(10, naturalWidth) : Math.min(32, Math.max(10, column.length + 4));
+    }),
   });
   for (const row of rows) table.push(columns.map((column) => primitive(row[column])));
   process.stdout.write(`${table.toString()}\n`);
   printMeta(envelope.meta, options);
-  const totalRows = payload.tableTotal ?? data.length;
-  if (!options.all && options.limit === undefined && totalRows > rows.length) {
-    process.stdout.write(`共 ${totalRows} 条，当前显示 ${rows.length} 条；使用 --all 查看全部。\n`);
+  const totalRows = payload.tableTotal ?? payload.tableRows?.length ?? data.length;
+  if (!options.all && totalRows > rows.length) {
+    const nextStep = options.limit === undefined ? "使用 --all 查看全部" : "使用 --offset 查看后续记录";
+    process.stdout.write(`共 ${totalRows} 条，当前显示 ${rows.length} 条；${nextStep}。\n`);
   }
 };
 

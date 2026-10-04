@@ -54,5 +54,11 @@ describe("catalog API response contracts", () => {
     expectInvalidData(() => validateApiPayload("/api/teach/timetable-public-all/2026-08-30", {
       timetable: { lessons: "not-an-array" },
     }));
+    expectInvalidData(() => validateApiPayload("/api/teach/timetable-public-all/2026-08-30", {
+      timetable: { error: "upstream failure" },
+    }));
+    expectInvalidData(() => validateApiPayload("/api/teach/lesson/list-for-teach/461", [{ id: "bad", code: 123 }]));
+    expectInvalidData(() => validateApiPayload("/api/teach/lesson/list-for-teach/461", [{ id: 1, code: "MATH.01", course: "not an object" }]));
+    expectInvalidData(() => validateApiPayload("/api/teach/course/infos", { id: 1, code: "MATH1001" }));
   });
 });

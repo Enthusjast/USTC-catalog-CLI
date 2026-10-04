@@ -91,4 +91,12 @@ describe("CatalogApiClient", () => {
       expect(error).toMatchObject({ code: "REMOTE_INVALID_DATA" });
     }
   });
+
+  it("rejects responses whose advertised size exceeds the safety limit", async () => {
+    const { client } = await clientFor((_request, response) => {
+      response.writeHead(200, { "content-length": 32 * 1024 * 1024 + 1 });
+      response.end();
+    });
+    await expect(client.get("/large")).rejects.toMatchObject({ code: "REMOTE_RESPONSE_TOO_LARGE" });
+  });
 });

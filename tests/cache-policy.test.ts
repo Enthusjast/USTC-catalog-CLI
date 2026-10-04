@@ -125,4 +125,16 @@ describe("DataAccessPolicy", () => {
     expect(result.meta.source).toBe("network");
     expect(repository.read("test", "refresh")?.value).toEqual({ id: 3 });
   });
+
+  it("prunes snapshots older than a timestamp while keeping recent rows", () => {
+    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "catalog-cli-test-"));
+    const repository = new SnapshotRepository(loadConfig({ cacheDir }));
+    resources.push(repository);
+    repository.write("lessons", "old", "lessons:old", { id: 1 }, 200, null, "2026-01-01T00:00:00.000Z");
+    repository.write("lessons", "new", "lessons:new", { id: 2 }, 200, null, "2026-09-01T00:00:00.000Z");
+
+    expect(repository.database.pruneBefore("2026-08-01T00:00:00.000Z")).toBe(1);
+    expect(repository.read("lessons", "old")).toBeNull();
+    expect(repository.read("lessons", "new")?.value).toEqual({ id: 2 });
+  });
 });

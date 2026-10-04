@@ -37,7 +37,7 @@ catalog --version
 版本命令输出产品名和版本号，例如：
 
 ```text
-USTC-catalog-CLI 0.2.1
+USTC-catalog-CLI 0.2.2
 ```
 
 ### 第一次查询
@@ -58,6 +58,7 @@ catalog classroom list --available
 ```bash
 catalog --json course search 数学
 catalog --csv lesson list --course 数学 > lessons.csv
+catalog --ics lesson list --semester 461 --course 数学 > math.ics
 ```
 
 ## 命令速览
@@ -70,6 +71,7 @@ catalog --csv lesson list --course 数学 > lessons.csv
 | `catalog department list` | 查看院系树 | `catalog department list` |
 | `catalog calendar` | 查看教学日历占位信息 | `catalog calendar` |
 | `catalog course search <关键词>` | 搜索课程 | `catalog course search 数学` |
+| `catalog course categories` | 查看网页课程分类代码 | `catalog course categories` |
 | `catalog course list <分类>` | 查看课程分类目录 | `catalog course list quality` |
 | `catalog course show <课程编号...>` | 查看一个或多个课程详情 | `catalog course show MATH1001` |
 | `catalog program catalog [关键词]` | 搜索 2013 版静态培养方案目录 | `catalog program catalog 数学` |
@@ -79,8 +81,11 @@ catalog --csv lesson list --course 数学 > lessons.csv
 | `catalog program show <计划ID>` | 查看培养方案及课程模块 | `catalog program show 3430` |
 | `catalog program module <模块ID>` | 查看培养方案模块 | `catalog program module 10001 --courses` |
 | `catalog lesson list` | 查询全校教学班 | `catalog lesson list --course 数学` |
+| `catalog lesson conflicts <课堂号...>` | 检查教学班的可能时间冲突 | `catalog lesson conflicts MATH1001.01 PHYS1001.01 --semester 461` |
 | `catalog lesson show <课堂号...>` | 查看教学班和课程详情 | `catalog lesson show MATH1001.01 --semester 461` |
 | `catalog classroom list` | 查看指定日期的教室使用情况 | `catalog classroom list --available` |
+| `catalog classroom available` | 按时间范围找空闲教室 | `catalog classroom available --from 14:00 --to 16:00` |
+| `catalog classroom buildings` | 查看楼栋代码和房间数 | `catalog classroom buildings` |
 | `catalog classroom show <教室>` | 查看单个教室 | `catalog classroom show 2303` |
 | `catalog classroom week` | 查看一周教室使用情况 | `catalog classroom week` |
 | `catalog exam list` | 查询考试 | `catalog exam list --course 微积分` |
@@ -89,6 +94,11 @@ catalog --csv lesson list --course 数学 > lessons.csv
 | `catalog substitute summary` | 查看网页提供的替代关系汇总表链接 | `catalog substitute summary` |
 | `catalog cache status` | 查看缓存数据库和快照统计 | `catalog cache status` |
 | `catalog cache clear` | 清理缓存 | `catalog cache clear --yes` |
+| `catalog cache prefetch` | 预取学期与指定日期缓存 | `catalog cache prefetch --semester 461 --date 2026-10-04` |
+| `catalog cache prune` | 删除较旧的快照 | `catalog cache prune --older-than 30d --yes` |
+| `catalog doctor` | 检查运行环境与 API | `catalog doctor --offline` |
+| `catalog completion show <shell>` | 输出 shell 补全脚本 | `catalog completion show zsh` |
+| `catalog preset save/run/list/delete` | 保存和重用只读查询 | `catalog preset save 数学课 -- lesson list --course 数学` |
 
 学期、计划、课堂号和考试 ID 应使用网站返回的实际值。可先执行 `catalog semester list`、`catalog department list` 或不带筛选条件的列表命令发现可用值。
 
@@ -125,7 +135,7 @@ catalog --csv lesson list --department 001 > lessons.csv
 
 ## MCP
 
-本包同时提供本地 stdio MCP 服务。MCP 客户端可以调用课程、培养方案、教学班、教室、考试、替代课程、学期和院系等只读查询；返回统一的 `meta/data` JSON，不返回终端表格，也不提供缓存清理、登录或选课操作。
+本包同时提供本地 stdio MCP 服务。MCP 客户端可以调用课程分类、培养方案、教学班冲突、楼栋发现、时段空闲教室、考试、替代课程、学期和院系等只读查询；返回统一的 `meta/data` JSON，不返回终端表格，也不提供缓存清理、预设管理、登录或选课操作。
 
 全局安装后，在 MCP 客户端配置：
 
@@ -149,7 +159,7 @@ catalog --csv lesson list --department 001 > lessons.csv
       "args": [
         "--yes",
         "--package",
-        "ustc-catalog-cli@0.2.1",
+        "ustc-catalog-cli@0.2.2",
         "catalog-mcp"
       ]
     }
@@ -181,7 +191,8 @@ catalog --csv lesson list --department 001 > lessons.csv
 | 选项 | 作用 |
 | --- | --- |
 | `--json` | 输出规范化 JSON |
-| `--csv` | 输出规范化 CSV；不能与 `--json` 同时使用 |
+| `--csv` | 输出规范化 CSV |
+| `--ics` | 教学班或考试列表导出 iCalendar |
 | `--offline` | 只读取缓存，不发起网络请求 |
 | `--no-cache` | 忽略已有缓存并强制请求最新数据 |
 | `--cache-dir <path>` | 覆盖 SQLite 缓存目录 |
@@ -190,6 +201,7 @@ catalog --csv lesson list --department 001 > lessons.csv
 | `--offset <n>` | 跳过前 `n` 条列表记录 |
 | `--all` | 表格输出全部记录 |
 | `--no-color` | 关闭表格颜色 |
+| `--wide` | 表格列不截断文本 |
 | `--quiet` | 不输出来源、时间等提示 |
 | `--verbose` | 将请求和缓存诊断信息输出到 stderr |
 
@@ -217,6 +229,63 @@ catalog --no-cache course search 数学
 ```
 
 `--offline` 和 `--no-cache` 不能同时使用。
+
+查找某日一段连续的空闲时间：
+
+```bash
+catalog classroom available --date 2026-10-04 --from 14:00 --to 16:00 --min-seats 30
+```
+
+缓存可按学期预取，按抓取时间清理：
+
+```bash
+catalog cache prefetch --semester 461 --date 2026-10-04
+catalog cache prune --older-than 30d --yes
+```
+
+查看运行环境、生成 shell 补全或保存常用查询：
+
+```bash
+catalog doctor --offline
+catalog completion show zsh
+catalog preset save 数学课 -- lesson list --course 数学
+catalog preset run 数学课 --json
+```
+
+冲突检查只比较命令行中明确列出的公开教学班，不推断学生选课关系。ICS 日历导出也只包含公开课程和考试数据。
+
+预取一个学期的教学班和考试缓存，也可重复指定教室日期：
+
+```bash
+catalog cache prefetch --semester 461 --date 2026-10-04 --date 2026-10-05
+```
+
+清除 30 天以前的快照需要确认：
+
+```bash
+catalog cache prune --older-than 30d --yes
+```
+
+`catalog doctor` 可离线检查 Node.js、SQLite 和缓存目录；命令补全脚本由 `catalog completion show zsh|bash|fish|powershell` 输出。预设保存在用户配置目录，仅接受公开只读查询，不支持 `cache clear`。
+
+指定日期和时段查找连续空闲教室：
+
+```bash
+catalog classroom available --date 2026-10-04 --from 14:00 --to 16:00 --min-seats 30
+```
+
+课程冲突检查只比较显式给出的公开教学班编号；无法解析的周次会单独提示，不会推断选课学生关系：
+
+```bash
+catalog lesson conflicts MATH1001.01 PHYS1001.01 --semester 461
+```
+
+查询结果可导出为日历：
+
+```bash
+catalog --ics lesson list --semester 461 --course 数学 > math.ics
+catalog --ics exam list --semester 461 > exams.ics
+```
 
 ### 缓存位置
 
@@ -294,9 +363,9 @@ npm pack --dry-run
 npm pack
 ```
 
-推送形如 `v0.2.1` 的 Git tag 会触发 GitHub Actions 发布流程。发布前需要在 npm 包设置中为该 GitHub 仓库配置 Trusted Publishing（OIDC）；日常开发不需要 npm token 写入仓库。
+推送形如 `v0.2.2` 的 Git tag 会触发 GitHub Actions 发布流程。发布前需要在 npm 包设置中为该 GitHub 仓库配置 Trusted Publishing（OIDC）；日常开发不需要 npm token 写入仓库。
 
-当前包生成的本地压缩包名称类似 `ustc-catalog-cli-0.2.1.tgz`。
+当前包生成的本地压缩包名称类似 `ustc-catalog-cli-0.2.2.tgz`。
 
 ## 详细文档
 

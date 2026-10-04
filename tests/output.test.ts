@@ -19,6 +19,25 @@ describe("output contracts", () => {
     write.mockRestore();
   });
 
+  it("applies explicit CSV limits to flattened rows and keeps the full column set", () => {
+    const write = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    emitResult(
+      {
+        meta: { resource: "test", scope: "all", source: "network", fetchedAt: "now", stale: false },
+        data: [{ id: 1 }, { id: 2 }, { id: 3 }],
+      },
+      { format: "csv", limit: 1, offset: 1, all: false, noColor: true, quiet: true },
+      25,
+      { tableRows: [{ ID: 1 }, { ID: 2, 课程编号: "MATH1001" }, { ID: 3 }] },
+    );
+    const output = String(write.mock.calls[0]?.[0] ?? "").replace(/^\uFEFF/, "");
+    expect(output).toContain("ID,课程编号");
+    expect(output).toContain("2,MATH1001");
+    expect(output).not.toContain("1,");
+    expect(output).not.toContain("3,");
+    write.mockRestore();
+  });
+
   it("rejects offset for object-shaped results", () => {
     try {
       emitResult(
@@ -45,6 +64,24 @@ describe("output contracts", () => {
     );
     const output = String(write.mock.calls[0]?.[0] ?? "");
     expect(JSON.parse(output).data).toEqual({ id: 1 });
+    write.mockRestore();
+  });
+
+  it("paginates flattened detail rows and retains full identifier columns", () => {
+    const write = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    emitResult(
+      {
+        meta: { resource: "program-detail", scope: "1", source: "network", fetchedAt: "now", stale: false },
+        data: { id: 1 },
+      },
+      { format: "table", limit: 1, offset: 0, all: false, noColor: true, wide: false, quiet: true },
+      25,
+      { tableRows: [{ 课程编号: "MATH1001.01" }, { 课程编号: "PHYS1001.01" }], tableTotal: 2 },
+    );
+    const output = write.mock.calls.flat().join("");
+    expect(output).toContain("MATH1001.01");
+    expect(output).not.toContain("PHYS1001.01");
+    expect(output).toContain("共 2 条");
     write.mockRestore();
   });
 

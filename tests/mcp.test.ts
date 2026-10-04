@@ -102,12 +102,20 @@ describe("USTC catalog MCP tools", () => {
     expect(JSON.parse(result.content[0].type === "text" ? result.content[0].text : "{}")).toEqual(envelope);
   });
 
+  it("keeps option-looking query values positional", async () => {
+    const executor = new FakeExecutor();
+    const session = await connect(executor);
+    await session.client.callTool({ name: "ustc_course_search", arguments: { keyword: "--offline" } });
+    expect(executor.calls[0]).toEqual(["course", "search", "--", "--offline"]);
+  });
+
   it("maps every public tool to the corresponding catalog command", async () => {
     const executor = new FakeExecutor();
     const session = await connect(executor);
     const cases: Array<{ name: string; arguments: Record<string, unknown>; expected: string[] }> = [
       { name: "ustc_semester_list", arguments: {}, expected: ["semester", "list"] },
       { name: "ustc_department_list", arguments: {}, expected: ["department", "list"] },
+      { name: "ustc_course_categories", arguments: {}, expected: ["course", "categories"] },
       { name: "ustc_calendar", arguments: {}, expected: ["calendar"] },
       {
         name: "ustc_course_list",
@@ -172,6 +180,12 @@ describe("USTC catalog MCP tools", () => {
         expected: ["--offset", "1", "lesson", "show", "--semester", "461", "--", "MATH1001.01"],
       },
       {
+        name: "ustc_lesson_conflicts",
+        arguments: { codes: ["MATH1001.01", "PHYS1001.01"], semester: 461 },
+        expected: ["lesson", "conflicts", "--semester", "461", "--", "MATH1001.01", "PHYS1001.01"],
+      },
+      { name: "ustc_classroom_buildings", arguments: {}, expected: ["classroom", "buildings"] },
+      {
         name: "ustc_classroom_list",
         arguments: { date: "2026-08-26", building: "1,2", keyword: "数学", available: true, freePeriod: 3 },
         expected: ["classroom", "list", "--date", "2026-08-26", "--building", "1,2", "--keyword", "数学", "--available", "--free-period", "3"],
@@ -180,6 +194,11 @@ describe("USTC catalog MCP tools", () => {
         name: "ustc_classroom_show",
         arguments: { room: "2303", date: "2026-08-26" },
         expected: ["classroom", "show", "--date", "2026-08-26", "--", "2303"],
+      },
+      {
+        name: "ustc_classroom_available",
+        arguments: { date: "2026-08-26", from: "14:00", to: "16:00", minSeats: 30 },
+        expected: ["classroom", "available", "--date", "2026-08-26", "--from", "14:00", "--to", "16:00", "--min-seats", "30"],
       },
       {
         name: "ustc_classroom_week",

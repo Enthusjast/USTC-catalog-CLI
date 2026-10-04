@@ -3,6 +3,7 @@ import {
   filterExams,
   filterLessons,
   filterSubstitutes,
+  findLessonConflicts,
   mergeClassroomUsages,
   normalizeExams,
   normalizeLesson,
@@ -36,6 +37,25 @@ describe("web behavior adapters", () => {
     expect(lesson.courseClassify).toBeNull();
     expect(filterLessons([lesson], { course: "数学" })).toHaveLength(1);
     expect(filterLessons([lesson], { course: "不存在" })).toHaveLength(0);
+  });
+
+  it("matches normalized lesson spans and reports overlaps only in shared weeks", () => {
+    const lesson = normalizeLesson({
+      id: 1,
+      code: "MATH1001.01",
+      course: { code: "MATH1001", cn: "数学分析" },
+      dateTimePlaceText: "5401: 1(3,4)",
+      dateTimePlacePersonText: { cn: "1~15周 5401 :1(3,4) 张三" },
+    });
+    expect(filterLessons([lesson], { span: "1(3,4)" })).toHaveLength(1);
+
+    const conflicts = findLessonConflicts([
+      lesson,
+      { ...lesson, code: "PHYS1001.01", courseCode: "PHYS1001", spans: [{ day: 1, periods: [4], weeks: "1~3" }] },
+      { ...lesson, code: "CS1001.01", courseCode: "CS1001", spans: [{ day: 1, periods: [4], weeks: "8~10" }] },
+    ]);
+    expect(conflicts).toHaveLength(2);
+    expect(conflicts[0].lessons.map((item) => item.code)).toEqual(["MATH1001.01", "PHYS1001.01"]);
   });
 
   it("keeps course and teaching-class detail as separate layers", () => {
@@ -155,5 +175,18 @@ describe("web behavior adapters", () => {
     expect(merged).toHaveLength(1);
     expect(merged[0].courseIds).toEqual(["MATH1001"]);
     expect(merged[0].teachers).toEqual(["张三", "李四"]);
+  });
+
+  it("merges overlapping clock times without losing the earliest start", () => {
+    const records = normalizeTimetable({
+      timetable: {
+        tmpLessons: [
+          { classroomName: "1101", courseName: "班会", applierName: "张老师", start: "9:30", end: "10:30" },
+          { classroomName: "1101", courseName: "班会", applierName: "张老师", start: "10:00", end: "11:00" },
+        ],
+      },
+    }, "2026-10-04");
+    expect(mergeClassroomUsages(records.map((item) => ({ ...item, channels: [3, 4] }))))
+      .toMatchObject([{ start: "09:30", end: "11:00" }]);
   });
 });

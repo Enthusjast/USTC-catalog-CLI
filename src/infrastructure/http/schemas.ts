@@ -5,6 +5,11 @@ const recordPayload = z.record(z.unknown());
 const scalarId = z.union([z.string(), z.number()]);
 
 const recordsPayload = z.array(recordPayload);
+const courseInfoItem = recordPayload.superRefine((value, context) => {
+  if (typeof value.code !== "string" || value.code.length === 0) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["code"], message: "课程详情缺少课程编号" });
+  }
+});
 
 const courseSearchItem = recordPayload.superRefine((value, context) => {
   if (!["number", "code", "id"].some((key) => value[key] !== undefined && value[key] !== null)) {
@@ -16,23 +21,6 @@ const courseSearchItem = recordPayload.superRefine((value, context) => {
 });
 
 const courseSearchPayload = z.array(courseSearchItem);
-
-const requireItemKey = (
-  items: Array<Record<string, unknown>>,
-  context: z.RefinementCtx,
-  keys: string[],
-  message: string,
-): void => {
-  items.forEach((item, index) => {
-    if (!keys.some((key) => item[key] !== undefined && item[key] !== null)) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: [index],
-        message,
-      });
-    }
-  });
-};
 
 const semesterItem = z.object({
   id: scalarId,
@@ -55,13 +43,24 @@ const departmentNode: z.ZodTypeAny = z.lazy(() => z.object({
 
 const departmentPayload = z.array(departmentNode);
 
-const lessonPayload = recordsPayload.superRefine((items, context) => {
-  requireItemKey(items, context, ["id", "code", "course"], "教学班结果缺少课堂号、ID 或课程信息");
-});
+const lessonItem = z.object({
+  id: scalarId,
+  code: z.string().min(1),
+  course: recordPayload.optional(),
+}).passthrough();
+const lessonPayload = z.array(lessonItem);
 
-const examPayload = recordsPayload.superRefine((items, context) => {
-  requireItemKey(items, context, ["id", "examDate", "courseCode", "lesson"], "考试结果缺少考试 ID、日期或课程信息");
-});
+const plannedExamItem = z.object({
+  id: scalarId,
+  examDate: z.string().optional(),
+  lesson: recordPayload.optional(),
+}).passthrough();
+const generalExamItem = z.object({
+  id: scalarId,
+  courseCode: z.string().optional(),
+  examDate: z.string().optional(),
+}).passthrough();
+const examPayload = z.array(z.union([plannedExamItem, generalExamItem]));
 
 const substituteItem = z.object({
   id: scalarId.optional(),
@@ -72,19 +71,20 @@ const substituteItem = z.object({
 const substitutePayload = z.array(substituteItem);
 
 const timetableGroup = z.object({
-  lessons: recordsPayload.optional(),
-  tmpLessons: recordsPayload.optional(),
-  roomOccupies: recordsPayload.optional(),
-  exams: recordsPayload.optional(),
-  makeupExams: recordsPayload.optional(),
-  tmpExams: recordsPayload.optional(),
-}).passthrough();
+  lessons: recordsPayload,
+  tmpLessons: recordsPayload,
+  roomOccupies: recordsPayload,
+  exams: recordsPayload,
+  makeupExams: recordsPayload,
+  tmpExams: recordsPayload,
+}).strict();
 
 const timetablePayload = z.object({
   timetable: timetableGroup,
 }).passthrough();
 
-const courseCollectionPayload = z.union([recordsPayload, recordPayload]);
+const courseGroupValue = z.union([recordsPayload, z.record(recordsPayload)]);
+const courseCollectionPayload = z.union([recordsPayload, z.record(courseGroupValue)]);
 
 const schemaFor = (path: string): z.ZodTypeAny => {
   const endpoint = path.split("?", 1)[0];
@@ -93,7 +93,7 @@ const schemaFor = (path: string): z.ZodTypeAny => {
   if (endpoint === "/api/teach/course/search") return courseSearchPayload;
   if (endpoint === "/api/teach/semester/list") return semesterPayload;
   if (endpoint === "/api/teach/department/college-tree") return departmentPayload;
-  if (endpoint === "/api/teach/course/infos") return recordsPayload;
+  if (endpoint === "/api/teach/course/infos") return z.array(courseInfoItem);
   if (endpoint.startsWith("/api/teach/lesson/list-for-teach/") || endpoint === "/api/teach/lesson/infos") return lessonPayload;
   if (endpoint.startsWith("/api/teach/exam/list/") || endpoint.startsWith("/api/teach/general-exam/list/")) return examPayload;
   if (endpoint === "/api/teach/course-substitute-pool/list") return substitutePayload;

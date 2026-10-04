@@ -12,6 +12,7 @@ import {
 export const MCP_TOOL_NAMES = [
   "ustc_semester_list",
   "ustc_department_list",
+  "ustc_course_categories",
   "ustc_calendar",
   "ustc_course_search",
   "ustc_course_list",
@@ -24,7 +25,10 @@ export const MCP_TOOL_NAMES = [
   "ustc_program_module",
   "ustc_lesson_list",
   "ustc_lesson_show",
+  "ustc_lesson_conflicts",
+  "ustc_classroom_buildings",
   "ustc_classroom_list",
+  "ustc_classroom_available",
   "ustc_classroom_show",
   "ustc_classroom_week",
   "ustc_exam_list",
@@ -164,6 +168,8 @@ export const registerCatalogTools = (server: McpServer, executor: CliExecutor): 
     (args) => commandArgs(["semester", "list"], args));
   register(server, executor, "ustc_department_list", "查看网页筛选器使用的院系树。", departmentInput,
     (args) => commandArgs(["department", "list"], args));
+  register(server, executor, "ustc_course_categories", "列出网页课程分类代码及其 API 来源。", commonSchema(),
+    (args) => commandArgs(["course", "categories"], args));
   register(server, executor, "ustc_calendar", "查看教学日历公开状态；当前网页没有公开日历数据。", calendarInput,
     (args) => commandArgs(["calendar"], args));
 
@@ -284,20 +290,51 @@ export const registerCatalogTools = (server: McpServer, executor: CliExecutor): 
     return positionals(command, arrayValue(args, "codes"));
   });
 
+  register(server, executor, "ustc_lesson_conflicts", "检查明确提供的公开教学班之间是否存在可能的时间重叠，不推断选课关系。", {
+    ...commonSchema(),
+    codes: z.array(z.string().min(1)).min(2).describe("至少两个教学班编号。"),
+    semester: z.union([z.string(), z.number().int()]).describe("学期 ID、学期代码或中文名称。"),
+  }, (args) => {
+    const command = commandArgs(["lesson", "conflicts"], args);
+    appendOption(command, "--semester", stringValue(args, "semester"));
+    return positionals(command, arrayValue(args, "codes"));
+  });
+
+  register(server, executor, "ustc_classroom_buildings", "列出网页教室筛选器可选的楼栋代码和房间数量。", commonSchema(),
+    (args) => commandArgs(["classroom", "buildings"], args));
+
   register(server, executor, "ustc_classroom_list", "查看指定日期的教室使用情况，并筛选楼栋、关键词、空闲状态或节次。", {
     ...commonSchema(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("日期；省略时使用中国标准时间当天。"),
     building: z.string().optional().describe("楼栋代码，可用逗号分隔。"),
     keyword: z.string().optional().describe("房间、课程、教师、申请人或主办方关键词。"),
     available: z.boolean().optional().describe("只显示当天没有使用记录的教室。"),
-    freePeriod: z.number().int().min(0).max(13).optional().describe("只显示指定节次空闲的教室；0 表示全天空闲。"),
+    freePeriod: z.union([z.number().int().min(0).max(13), z.enum(["noon", "evening"])]).optional()
+      .describe("只显示指定节次空闲的教室；0 表示全天空闲，noon/evening 表示中午/傍晚。"),
   }, (args) => {
     const command = commandArgs(["classroom", "list"], args);
     appendOption(command, "--date", stringValue(args, "date"));
     appendOption(command, "--building", stringValue(args, "building"));
     appendOption(command, "--keyword", stringValue(args, "keyword"));
     appendOption(command, "--available", args.available);
-    appendOption(command, "--free-period", numberValue(args, "freePeriod"));
+    appendOption(command, "--free-period", args.freePeriod);
+    return command;
+  });
+
+  register(server, executor, "ustc_classroom_available", "按指定日期和时间范围查找空闲教室。", {
+    ...commonSchema(),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    from: z.string().regex(/^\d{2}:\d{2}$/),
+    to: z.string().regex(/^\d{2}:\d{2}$/),
+    building: z.string().optional(),
+    minSeats: z.number().int().min(0).optional(),
+  }, (args) => {
+    const command = commandArgs(["classroom", "available"], args);
+    appendOption(command, "--date", stringValue(args, "date"));
+    appendOption(command, "--from", stringValue(args, "from"));
+    appendOption(command, "--to", stringValue(args, "to"));
+    appendOption(command, "--building", stringValue(args, "building"));
+    appendOption(command, "--min-seats", numberValue(args, "minSeats"));
     return command;
   });
 

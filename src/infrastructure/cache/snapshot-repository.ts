@@ -114,6 +114,14 @@ export class SnapshotRepository {
     }
   }
 
+  pruneBefore(fetchedAt: string, resource?: string): number {
+    try {
+      return this.database.pruneBefore(fetchedAt, resource);
+    } catch (error) {
+      throw new CliError("CACHE_ERROR", "无法清理过期缓存。", "请检查缓存数据库权限或完整性。", error);
+    }
+  }
+
   stats(): SnapshotStat[] {
     try {
       return this.database.stats();

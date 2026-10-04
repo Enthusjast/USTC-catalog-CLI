@@ -13,6 +13,12 @@ const cleanText = (value: string): string =>
     .replace(/[ \t\r\n]+/g, " ")
     .trim();
 
+const nodeText = ($: ReturnType<typeof load>, node: CheerioInput): string => {
+  const copy = $(node).clone();
+  copy.find("br").replaceWith(" ");
+  return cleanText(copy.text());
+};
+
 type CheerioInput = Parameters<ReturnType<typeof load>>[0];
 
 const linksFrom = ($: ReturnType<typeof load>, node: CheerioInput): ProgramDocumentLink[] =>
@@ -27,23 +33,27 @@ const linksFrom = ($: ReturnType<typeof load>, node: CheerioInput): ProgramDocum
     .filter((link) => link.href.length > 0);
 
 const tableFrom = ($: ReturnType<typeof load>, table: Parameters<ReturnType<typeof load>>[0]): ProgramDocumentTable => {
-  const rows = $(table)
-    .find("tr")
-    .toArray()
-    .map((row) =>
-      $(row)
-        .find("th,td")
-        .toArray()
-        .map((cell) => cleanText($(cell).text())),
-    )
-    .filter((row) => row.length > 0);
-  const headerIndex = rows.reduce(
-    (best, row, index) => row.length > rows[best]?.length ? index : best,
-    0,
-  );
+  const tableNode = $(table);
+  const rowsFor = (selector: string): CheerioInput[] => tableNode.find(selector).toArray();
+  const rowCells = (row: CheerioInput): string[] => $(row).find("th,td").toArray().map((cell) => nodeText($, cell));
+  const allRows = rowsFor("tr");
+  const headRows = rowsFor("thead tr");
+  const bodyRows = rowsFor("tbody tr");
+  const footnoteRows = rowsFor("tfoot tr");
+  const explicitHeader = headRows[0] ?? allRows.find((row) => $(row).find("th").length > 0);
+  const fallbackHeader = explicitHeader ?? allRows.reduce<CheerioInput | undefined>((best, row) =>
+    !best || rowCells(row).length > rowCells(best).length ? row : best, undefined);
+  const headers = fallbackHeader ? rowCells(fallbackHeader) : [];
+  const footnoteSet = new Set(footnoteRows);
+  const dataSource = bodyRows.length > 0 ? bodyRows : allRows;
+  const dataRows = dataSource
+    .filter((row) => row !== fallbackHeader && !footnoteSet.has(row))
+    .map(rowCells);
+  const footnotes = footnoteRows.flatMap(rowCells);
   return {
-    headers: headerIndex >= 0 ? rows[headerIndex] : [],
-    rows: headerIndex >= 0 ? rows.slice(headerIndex + 1) : [],
+    headers,
+    rows: dataRows,
+    ...(footnotes.length > 0 ? { footnotes } : {}),
   };
 };
 
@@ -62,16 +72,16 @@ const blocksFrom = ($: ReturnType<typeof load>, elements: CheerioInput[]): Progr
         blocks.push({ type: "course", code, text: cleanText($(course).text()) });
       }
     });
+    node.find("img").addBack("img").each((_, image) => {
+      const src = cleanText($(image).attr("src") ?? "");
+      if (src) blocks.push({ type: "image", src, alt: cleanText($(image).attr("alt") ?? "") || undefined });
+    });
     if (node.is("table")) continue;
-    if (node.is("img")) {
-      const src = cleanText(node.attr("src") ?? "");
-      if (src) blocks.push({ type: "image", src, alt: cleanText(node.attr("alt") ?? "") || undefined });
-      continue;
-    }
+    if (node.is("img")) continue;
     if (node.is("p,li,blockquote")) {
-      const text = cleanText(node.text());
       const links = linksFrom($, element);
-      if (text) blocks.push({ type: "paragraph", text, ...(links.length > 0 ? { links } : {}) });
+      const paragraphText = nodeText($, element);
+      if (paragraphText) blocks.push({ type: "paragraph", text: paragraphText, ...(links.length > 0 ? { links } : {}) });
     }
   }
   return blocks;

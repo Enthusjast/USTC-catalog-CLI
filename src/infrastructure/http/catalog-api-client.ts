@@ -11,6 +11,7 @@ export type ApiResult<T> = {
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const MAX_RESPONSE_BYTES = 32 * 1024 * 1024;
 
 export class CatalogApiClient {
   private activeRequests = 0;
@@ -53,8 +54,33 @@ export class CatalogApiClient {
           body: body === undefined ? undefined : JSON.stringify(body),
           headersTimeout: this.config.timeoutMs,
           bodyTimeout: this.config.timeoutMs,
+          signal: AbortSignal.timeout(this.config.timeoutMs),
         });
-        const text = await response.body.text();
+        const advertisedLength = Number(response.headers["content-length"]);
+        if (Number.isFinite(advertisedLength) && advertisedLength > MAX_RESPONSE_BYTES) {
+          response.body.destroy();
+          throw new CliError(
+            "REMOTE_RESPONSE_TOO_LARGE",
+            `${method} ${path} 返回内容超过 ${MAX_RESPONSE_BYTES} 字节上限。`,
+            "请调整查询范围，或稍后重试较小的数据范围。",
+          );
+        }
+        const chunks: Buffer[] = [];
+        let responseBytes = 0;
+        for await (const chunk of response.body) {
+          const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          responseBytes += bytes.byteLength;
+          if (responseBytes > MAX_RESPONSE_BYTES) {
+            response.body.destroy();
+            throw new CliError(
+              "REMOTE_RESPONSE_TOO_LARGE",
+              `${method} ${path} 返回内容超过 ${MAX_RESPONSE_BYTES} 字节上限。`,
+              "请调整查询范围，或稍后重试较小的数据范围。",
+            );
+          }
+          chunks.push(bytes);
+        }
+        const text = Buffer.concat(chunks).toString("utf8");
         const contentType = String(response.headers["content-type"] ?? "");
 
         if (response.statusCode < 200 || response.statusCode >= 300) {

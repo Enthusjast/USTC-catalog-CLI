@@ -38,4 +38,28 @@ describe("static program document adapter", () => {
       links: [{ text: "课程说明", href: "https://example.com/course" }],
     });
   });
+
+  it("preserves footnotes before table headers and line breaks", () => {
+    const document = normalizeProgramDocument(
+      `<h2>课程</h2><table><tfoot><tr><td>脚注说明</td></tr></tfoot><thead><tr><th>课程</th><th>学分</th></tr></thead><tbody><tr><td>分析</td><td>6</td></tr></tbody></table><p>第一行<br>第二行</p>`,
+      "001001",
+      "数学专业",
+      "/data/program/cn/001001.html",
+    );
+    const table = document.sections[0].blocks.find((block) => block.type === "table");
+    const paragraph = document.sections[0].blocks.find((block) => block.type === "paragraph");
+    expect(table).toMatchObject({ type: "table", table: { headers: ["课程", "学分"], rows: [["分析", "6"]], footnotes: ["脚注说明"] } });
+    expect(paragraph).toMatchObject({ type: "paragraph", text: "第一行 第二行" });
+  });
+
+  it("extracts a header row inside tbody without dropping it or its data", () => {
+    const document = normalizeProgramDocument(
+      `<h2>课程</h2><table><tbody><tr><th>课程</th><th>学分</th></tr><tr><td>分析</td><td>6</td></tr></tbody></table>`,
+      "001001",
+      "数学专业",
+      "/data/program/cn/001001.html",
+    );
+    const table = document.sections[0].blocks.find((block) => block.type === "table");
+    expect(table).toMatchObject({ type: "table", table: { headers: ["课程", "学分"], rows: [["分析", "6"]] } });
+  });
 });

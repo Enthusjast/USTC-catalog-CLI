@@ -68,7 +68,7 @@ export const programDocumentRows = (document: ProgramDocument): DisplayRow[] =>
         ? `${block.code} ${block.text}`
         : block.type === "image"
           ? block.alt ?? block.src
-          : block.table.rows.map((row) => row.join(" | ")).join("；"),
+          : [...(block.table.footnotes ?? []), ...block.table.rows.map((row) => row.join(" | "))].join("；"),
     ...(block.type === "paragraph" && block.links?.length
       ? { 链接: block.links.map((link) => `${link.text} → ${link.href}`).join("；") }
       : {}),

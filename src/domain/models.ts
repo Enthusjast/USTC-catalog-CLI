@@ -118,6 +118,7 @@ export type ProgramCatalogEntry = {
 export type ProgramDocumentTable = {
   headers: string[];
   rows: string[][];
+  footnotes?: string[];
 };
 
 export type ProgramDocumentLink = {
@@ -317,6 +318,18 @@ export type QueryOptions = {
   offset: number;
   all: boolean;
   noColor: boolean;
+  wide: boolean;
+  ics: boolean;
   quiet: boolean;
   verbose: boolean;
+};
+
+export type FreePeriod = number | "noon" | "evening";
+
+export type LessonConflict = {
+  day: number;
+  dayName: string;
+  periods: number[];
+  weekText?: string;
+  lessons: Array<Pick<Lesson, "code" | "courseCode" | "courseName" | "teachers">>;
 };
