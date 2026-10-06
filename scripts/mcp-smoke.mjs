@@ -15,7 +15,7 @@ const transport = new StdioClientTransport({
 try {
   await client.connect(transport);
   const tools = await client.listTools();
-  assert.equal(tools.tools.length, 27);
+  assert.equal(tools.tools.length, 33);
   assert.equal(tools.tools.every((tool) => tool.annotations?.readOnlyHint === true), true);
 
   const result = await client.callTool({

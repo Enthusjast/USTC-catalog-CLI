@@ -14,20 +14,27 @@ import { PresetStore } from "./infrastructure/config/presets.js";
 import { pruneSnapshots, prefetchSnapshots } from "./application/cache-maintenance.js";
 import { runDiagnostics } from "./application/diagnostics.js";
 import { shellCompletion } from "./presentation/completion.js";
+import { downloadSubstituteSummary } from "./infrastructure/http/substitute-summary-downloader.js";
 import { CLI_VERSION_TEXT } from "./version.js";
 import { CACHE_RESOURCE_NAMES, type LessonFilter } from "./domain/query.js";
+import type { ExamFilters } from "./adapters/adapters.js";
 import { parseLessonSpanFilter, parseWeekNumbers } from "./domain/schedule.js";
 import {
   classroomRows,
   classroomWeekSummaryRows,
   courseDetailRows,
   courseRows,
+  examConflictRows,
+  examOptionRows,
+  examScheduleRows,
   examRows,
   lessonRows,
   lessonDetailRows,
   lessonExportRows,
   programCatalogRows,
   programDocumentRows,
+  programHistoryRows,
+  programComparisonRows,
   programRows,
   substituteRows,
 } from "./presentation/rows.js";
@@ -219,6 +226,48 @@ const classroomFilterValues = (value?: string): string[] | undefined => {
   return values;
 };
 
+const addExamFilterOptions = (command: Command, includeDate = true): Command => {
+  command
+    .option("--semester <id-or-code>", "学期 ID、代码或名称")
+    .option("--type <type>", "考试类型，例如期中考试、期末考试或补考")
+    .option("--education <name>", "学历层次，例如本科、研究生、本研贯通")
+    .option("--department <code-or-name>", "院系代码或名称")
+    .option("--grade <grade>", "年级")
+    .option("--building <code>", "网页教学楼代码；0 表示其他楼栋")
+    .option("--course <text>", "课程名称或课程号")
+    .option("--teacher <text>", "教师")
+    .option("--location <text>", "考场")
+    .option("--class <text>", "上课班级")
+    .option("--span <span>", "时间段：morning、afternoon、evening");
+  if (includeDate) command.option("--date <YYYY-MM-DD>", "考试日期");
+  return command;
+};
+
+const examFiltersFrom = (opts: Record<string, unknown>, includeDate = true): ExamFilters => ({
+  type: typeof opts.type === "string" ? opts.type : undefined,
+  education: typeof opts.education === "string" ? opts.education : undefined,
+  department: typeof opts.department === "string" ? opts.department : undefined,
+  grade: typeof opts.grade === "string" ? opts.grade : undefined,
+  building: typeof opts.building === "string" ? opts.building : undefined,
+  date: includeDate && typeof opts.date === "string" ? validDate(opts.date, "考试日期") : undefined,
+  course: typeof opts.course === "string" ? opts.course : undefined,
+  teacher: typeof opts.teacher === "string" ? opts.teacher : undefined,
+  location: typeof opts.location === "string" ? opts.location : undefined,
+  className: typeof opts.class === "string" ? opts.class : undefined,
+  span: choice(typeof opts.span === "string" ? opts.span : undefined, ["morning", "afternoon", "evening"], "--span"),
+});
+
+const mondayWeekRange = (dateValue: string): { from: string; to: string } => {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const anchor = new Date(Date.UTC(year, month - 1, day));
+  const offset = (anchor.getUTCDay() + 6) % 7;
+  const monday = new Date(anchor.getTime() - offset * 86400000);
+  return {
+    from: monday.toISOString().slice(0, 10),
+    to: new Date(monday.getTime() + 6 * 86400000).toISOString().slice(0, 10),
+  };
+};
+
 const cacheResource = (value?: string): string | undefined => {
   if (value === undefined) return undefined;
   if (!(CACHE_RESOURCE_NAMES as readonly string[]).includes(value)) {
@@ -248,10 +297,17 @@ const programModuleRows = (module: ProgramModule, includeCourses = true): Array<
   {
     模块ID: module.id,
     类型: module.type,
+    专业: module.major ?? "",
+    专业方向: module.majorDirection ?? "",
+    备注: module.remark ?? "",
     要求学分: module.requiredCredits ?? "",
     要求门数: module.requiredCourseNum ?? "",
+    要求子模块数: module.requiredSubModuleNum ?? "",
+    学分上限: module.creditsUpperLimit ?? "",
+    门数上限: module.courseNumUpperLimit ?? "",
     叶子: module.isLeaf ? "是" : "否",
-    课程数: module.courses.length,
+    引用模块ID: module.publicModuleId ?? "",
+    课程数: module.publicModuleId != null && module.courses.length === 0 ? "待展开" : module.courses.length,
   },
   ...(includeCourses ? module.courses.map((course) => ({
     模块ID: module.id,
@@ -261,6 +317,9 @@ const programModuleRows = (module: ProgramModule, includeCourses = true): Array<
     学时: course.hours ?? "",
     学分: course.credits ?? "",
     开课学期: course.terms.join("、"),
+    开课单位: course.departmentName ?? "",
+    考核方式: course.examMode ?? "",
+    备注: course.remark ?? "",
   })) : []),
   ...module.children.flatMap((child) => programModuleRows(child, includeCourses)),
 ];
@@ -299,6 +358,13 @@ const emitCalendarOutput = (
   if (!quiet && result.skipped > 0) process.stderr.write(`提示：${result.skipped} 条记录因缺少可解析的日期或时间，未写入日历。\n`);
   if (!quiet && (meta?.unlocatedUsageCount ?? 0) > 0) {
     process.stderr.write(`提示：公开课表中有 ${meta?.unlocatedUsageCount} 条使用记录无法关联到网页教室目录，未写入日历。\n`);
+  }
+  if (!quiet && meta?.notice) process.stderr.write(`提示：${meta.notice}\n`);
+  if (!quiet && (meta?.uncheckableExamCount ?? 0) > 0) {
+    process.stderr.write(`提示：${meta?.uncheckableExamCount} 条考试记录未能检查考场冲突。\n`);
+  }
+  if (!quiet && (meta?.unmappedDepartmentCount ?? 0) > 0) {
+    process.stderr.write(`提示：${meta?.unmappedDepartmentCount} 条通用考试院系名称未能映射为代码。\n`);
   }
 }
 
@@ -443,57 +509,104 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
       const tableRows = programDocumentRows(result.value);
       emitResult(result, options, 50, { tableRows, tableTotal: tableRows.length });
     });
-  programCommand
+  const programHistory = programCommand
     .command("history")
-    .description("输出网页提供的历史培养方案链接")
+    .description("查看历史培养方案入口、索引或下载单个 PDF")
     .action((_opts: unknown, command: Command) => emitStaticMessage(
       "program-history",
       "历史培养方案",
       "https://www.teach.ustc.edu.cn/education/241.html",
       cliOptions(command),
     ));
+  programHistory
+    .command("list")
+    .option("--keyword <text>", "筛选历史方案名称、版本或类别")
+    .description("列出教务处历史方案修订文件和专业方案链接")
+    .action(async (_opts: unknown, command: Command) => {
+      const options = cliOptions(command);
+      const result = await services.program.history(command.opts().keyword, accessOptions(options));
+      emitResult(result, options, 30, { tableRows: programHistoryRows(result.value) });
+    });
+  programHistory
+    .command("download <entryId>")
+    .requiredOption("--output <path>", "PDF 保存路径；不会覆盖现有文件")
+    .description("下载历史索引中的单个官方 PDF")
+    .action(async (entryId: string, _opts: unknown, command: Command) => {
+      const options = cliOptions(command);
+      const result = await services.program.downloadHistory(entryId, command.opts().output, accessOptions(options));
+      emitResult(result, options, 1, {
+        tableRows: [{
+          名称: result.value.entry.title,
+          版本: result.value.entry.version ?? "",
+          文件: result.value.path,
+          大小字节: result.value.sizeBytes,
+          SHA256: result.value.sha256,
+          来源: result.value.url,
+        }],
+      });
+    });
   programCommand
     .command("list")
     .option("--department <id>", "院系内部 ID")
     .option("--major <id>", "专业内部 ID")
     .option("--grade <grade>", "年级")
     .option("--type <type>", "培养类型")
+    .option("--name <text>", "培养方案名称，多空格 token 全部匹配")
     .action(async (_opts: unknown, command: Command) => {
       const options = cliOptions(command);
       const opts = command.opts();
       const result = await services.program.departments(accessOptions(options));
+      const nameTerms = typeof opts.name === "string"
+        ? opts.name.trim().toLowerCase().split(/\s+/).filter(Boolean)
+        : [];
       const value = result.value.filter((item) =>
         (!opts.department || item.departmentCode === opts.department || String(item.departmentId) === opts.department) &&
         (!opts.major || item.majorCode === opts.major || String(item.majorId) === opts.major) &&
         (!opts.grade || item.grade === opts.grade) &&
-        (!opts.type || item.trainType === opts.type),
+        (!opts.type || item.trainType === opts.type) &&
+        nameTerms.every((term) => item.name.toLowerCase().includes(term)),
       );
       emitResult({ ...result, value }, options, 25, { tableRows: programRows(value) });
     });
   programCommand.command("show <id>")
     .option("--term <term>", "只显示指定开课学期的课程")
+    .option("--expand-public", "递归加载网站标记为‘加载更多’的引用模块")
     .action(async (id: string, _opts: unknown, command: Command) => {
-    const options = cliOptions(command);
-      const result = await services.program.detail(parseInteger(id), accessOptions(options));
-    const term = command.opts().term as string | undefined;
-    const value = term ? { ...result.value, modules: filterProgramModules(result.value.modules, term) } : result.value;
-    emitResult({ ...result, value }, options, 25, {
-      tableRows: [
+      const options = cliOptions(command);
+      const opts = command.opts();
+      const result = await services.program.detail(parseInteger(id), accessOptions(options), Boolean(opts.expandPublic));
+      const value = opts.term
+        ? { ...result.value, modules: filterProgramModules(result.value.modules, String(opts.term)) }
+        : result.value;
+      const tableRows = [
         {
           计划ID: value.id,
           院系: value.departmentName,
           专业: value.majorName,
+          专业方向: value.majorDirection ?? "",
           计划名称: value.name,
           年级: value.grade,
           培养类型: value.trainType,
+          起始学期: value.beginSemester ?? "",
+          授予学位: value.awardDegree === undefined ? "" : value.awardDegree ? "是" : "否",
           要求总学分: value.requiredCredits ?? "",
           顶层模块数: value.modules.length,
         },
         ...value.modules.flatMap((module) => programModuleRows(module)),
-      ],
-      tableTotal: 1 + value.modules.reduce((count, module) => count + programModuleRows(module).length, 0),
+      ];
+      emitResult({ ...result, value }, options, 25, {
+        tableRows,
+        tableTotal: tableRows.length,
+      });
     });
-  });
+  programCommand.command("compare <beforeId> <afterId>")
+    .description("比较两个 API 培养方案及其完整引用模块")
+    .action(async (beforeId: string, afterId: string, _opts: unknown, command: Command) => {
+      const options = cliOptions(command);
+      const result = await services.program.compare(parseInteger(beforeId), parseInteger(afterId), accessOptions(options));
+      const tableRows = programComparisonRows(result.value);
+      emitResult(result, options, 50, { tableRows, tableTotal: tableRows.length });
+    });
   programCommand.command("module <id>")
     .option("--courses", "同时显示模块中的课程行")
     .action(async (id: string, _opts: unknown, command: Command) => {
@@ -738,45 +851,17 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
     });
 
   const exam = program.command("exam").description("考试查询");
-  exam
-    .command("list")
-    .option("--semester <id-or-code>", "学期 ID 或学期代码")
-    .option("--type <type>", "考试类型")
-    .option("--education <name>", "学历层次")
-    .option("--department <code>", "开课单位代码")
-    .option("--grade <grade>", "年级")
-    .option("--building <code>", "教学楼")
-    .option("--date <YYYY-MM-DD>", "日期")
-    .option("--course <text>", "课程")
-    .option("--teacher <text>", "教师")
-    .option("--location <text>", "教室")
-    .option("--class <text>", "上课班级")
-    .option("--span <span>", "时间段：morning、afternoon、evening")
+  addExamFilterOptions(exam.command("list"))
     .option("--sort <field>", "排序字段：course、department、teacher、location、date、time、class", "date")
     .option("--desc", "降序")
+    .description("查询计划内考试和补考/通用考试")
     .action(async (_opts: unknown, command: Command) => {
       const options = cliOptions(command);
       const opts = command.opts();
-      const span = choice(opts.span, ["morning", "afternoon", "evening"], "--span");
       const sort = choice(opts.sort, ["course", "department", "teacher", "location", "date", "time", "class"], "--sort");
       const semesterId = await resolveSemester(services, opts.semester, options);
       const result = await services.exam.list(
-        {
-          semesterId,
-          type: opts.type,
-          education: opts.education,
-          department: opts.department,
-          grade: opts.grade,
-          building: opts.building,
-          date: opts.date ? validDate(opts.date, "考试日期") : undefined,
-          course: opts.course,
-          teacher: opts.teacher,
-          location: opts.location,
-          className: opts.class,
-          span,
-          sort,
-          descending: Boolean(opts.desc),
-        },
+        { semesterId, ...examFiltersFrom(opts), sort, descending: Boolean(opts.desc) },
         accessOptions(options),
       );
       if (options.ics) {
@@ -789,6 +874,56 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
       }
       emitResult(result, options, 25, { tableRows: examRows(result.value) });
     });
+
+  addExamFilterOptions(exam.command("options"))
+    .description("列出当前筛选条件下的考试筛选选项及数量")
+    .action(async (_opts: unknown, command: Command) => {
+      const options = cliOptions(command);
+      const opts = command.opts();
+      const semesterId = await resolveSemester(services, opts.semester, options);
+      const result = await services.exam.options(
+        { semesterId, ...examFiltersFrom(opts) },
+        accessOptions(options),
+      );
+      emitResult(result, options, 50, { tableRows: examOptionRows(result.value) });
+    });
+
+  addExamFilterOptions(exam.command("schedule"), false)
+    .option("--date <YYYY-MM-DD>", "查看单日考试")
+    .option("--week-of <YYYY-MM-DD>", "查看该日期所在周（星期一至星期日）")
+    .description("按日期或整周查看考试日程")
+    .action(async (_opts: unknown, command: Command) => {
+      const options = cliOptions(command);
+      const opts = command.opts();
+      if ((opts.date === undefined) === (opts.weekOf === undefined)) {
+        throw new CliError("ARGUMENT_ERROR", "exam schedule 必须且只能提供 --date 或 --week-of。");
+      }
+      const anchor = validDate(String(opts.date ?? opts.weekOf), opts.date === undefined ? "周日期" : "考试日期");
+      const range = opts.weekOf === undefined ? { from: anchor, to: anchor } : mondayWeekRange(anchor);
+      const semesterId = await resolveSemester(services, opts.semester, options);
+      const result = await services.exam.schedule(
+        semesterId,
+        range.from,
+        range.to,
+        examFiltersFrom(opts, false),
+        accessOptions(options),
+      );
+      emitResult(result, options, 7, { tableRows: examScheduleRows(result.value) });
+    });
+
+  addExamFilterOptions(exam.command("conflicts"))
+    .description("检查同日同一考场的考试时间重叠；不推断考生个人冲突")
+    .action(async (_opts: unknown, command: Command) => {
+      const options = cliOptions(command);
+      const opts = command.opts();
+      const semesterId = await resolveSemester(services, opts.semester, options);
+      const result = await services.exam.conflicts(
+        { semesterId, ...examFiltersFrom(opts) },
+        accessOptions(options),
+      );
+      emitResult(result, options, 25, { tableRows: examConflictRows(result.value) });
+    });
+
   exam
     .command("show <id>")
     .requiredOption("--semester <id-or-code>", "学期 ID 或学期代码")
@@ -803,6 +938,7 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
   substitute
     .command("list")
     .option("--course <text>", "课程名称或编号")
+    .option("--side <side>", "关系侧别：替代方 或 被替代方（需同时提供 --course）")
     .option("--mode <mode>", "interchangeable 或 straight")
     .option("--multiple", "只显示多门关系")
     .option("--single", "只显示单门关系")
@@ -810,12 +946,17 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
       const options = cliOptions(command);
       const opts = command.opts();
       if (opts.multiple && opts.single) throw new CliError("ARGUMENT_ERROR", "--multiple 和 --single 不能同时使用。");
+      if (opts.side && !opts.course) throw new CliError("ARGUMENT_ERROR", "使用 --side 时必须同时提供 --course。");
+      if (opts.side && !["替代方", "被替代方"].includes(opts.side)) {
+        throw new CliError("ARGUMENT_ERROR", "--side 只能是 替代方 或 被替代方。");
+      }
       if (opts.mode && !["interchangeable", "straight"].includes(opts.mode)) {
         throw new CliError("ARGUMENT_ERROR", "--mode 只能是 interchangeable 或 straight。");
       }
       const result = await services.substitute.list(
         {
           course: opts.course,
+          side: opts.side === "替代方" ? "substitute" : opts.side === "被替代方" ? "original" : undefined,
           mode: opts.mode,
           multiple: opts.multiple ? true : opts.single ? false : undefined,
         },
@@ -824,14 +965,57 @@ export const buildCli = (config?: Partial<AppConfig>): { program: Command; servi
       emitResult(result, options, 40, { tableRows: substituteRows(result.value) });
     });
   substitute
+    .command("explain <course>")
+    .description("查看课程参与的直接替代关系；不推断传递替代链")
+    .option("--side <side>", "关系侧别：替代方 或 被替代方")
+    .action(async (course: string, _opts: unknown, command: Command) => {
+      const options = cliOptions(command);
+      const side = command.opts().side;
+      if (side && !["替代方", "被替代方"].includes(side)) {
+        throw new CliError("ARGUMENT_ERROR", "--side 只能是 替代方 或 被替代方。");
+      }
+      const result = await services.substitute.explain(
+        course,
+        side === "替代方" ? "substitute" : side === "被替代方" ? "original" : undefined,
+        accessOptions(options),
+      );
+      emitResult(result, options, 40, { tableRows: substituteRows(result.value) });
+    });
+  substitute
     .command("summary")
-    .description("输出网页提供的交流学校课程替代关系汇总表链接")
-    .action((_opts: unknown, command: Command) => emitStaticMessage(
-      "substitute-summary",
-      "交流学校课程替代关系汇总表",
-      "https://www.teach.ustc.edu.cn/?attachment_id=3310",
-      cliOptions(command),
-    ));
+    .description("查看官方交流学校课程替代关系汇总表链接，或下载 PDF")
+    .option("--download <path>", "下载并校验官方 PDF 到指定路径；不会覆盖现有文件")
+    .action(async (_opts: unknown, command: Command) => {
+      const options = cliOptions(command);
+      const downloadPath = command.opts().download;
+      if (!downloadPath) {
+        emitStaticMessage(
+          "substitute-summary",
+          "交流学校课程替代关系汇总表",
+          "https://www.teach.ustc.edu.cn/?attachment_id=3310",
+          options,
+        );
+        return;
+      }
+      if (options.offline) throw new CliError("ARGUMENT_ERROR", "下载官方 PDF 需要访问网络，不能与 --offline 同时使用。");
+      const downloaded = await downloadSubstituteSummary(downloadPath, appConfig.timeoutMs, appConfig.userAgent);
+      emitResult({
+        meta: {
+          resource: "substitute-summary-pdf",
+          scope: downloaded.path,
+          source: "network",
+          fetchedAt: new Date().toISOString(),
+          dataAsOf: "教务处官方附件",
+          stale: false,
+        },
+        data: {
+          文件: downloaded.path,
+          大小字节: downloaded.sizeBytes,
+          SHA256: downloaded.sha256,
+          来源: downloaded.url,
+        },
+      }, options, 1, { tableRows: [{ 文件: downloaded.path, 大小字节: downloaded.sizeBytes, SHA256: downloaded.sha256, 来源: downloaded.url }] });
+    });
 
   const cache = program.command("cache").description("缓存管理");
   cache.command("status").action((command: Command) => {

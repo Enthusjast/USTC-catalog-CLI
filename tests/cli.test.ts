@@ -29,7 +29,7 @@ describe("CLI contract", () => {
   it("shows the product name together with the version", () => {
     const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "catalog-cli-version-"));
     const { program, services } = buildCli({ cacheDir });
-    expect(program.version()).toBe("USTC-catalog-CLI 0.2.2");
+    expect(program.version()).toBe("USTC-catalog-CLI 0.3.0");
     services.repository.close();
   });
 
@@ -274,6 +274,50 @@ describe("CLI contract", () => {
       stdout.mockClear();
       await program.parseAsync(["--offline", "--ics", "classroom", "show", "1101", "--date", "2026-10-04"], { from: "user" });
       expect(stdout.mock.calls.map(([value]) => String(value)).join("")).toContain("SUMMARY:会议：读书会（1101）");
+    } finally {
+      stdout.mockRestore();
+      services.repository.close();
+    }
+  });
+
+  it("runs exam options, schedule, and conflicts entirely from cached semester data", async () => {
+    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "catalog-cli-exam-commands-"));
+    const { program, services } = buildCli({ cacheDir });
+    services.repository.write("semesters", "all", "fixture", [
+      { id: 461, nameZh: "2026年秋季学期", code: "20261", start: "2026-08-30", end: "2027-01-15", isLast: true },
+    ]);
+    services.repository.write("exams", "461", "fixture", [
+      { id: 1, examType: 2, examDate: "2026-11-04", startTime: 900, endTime: 1000, examRooms: [{ room: "5401", count: 20 }], lesson: { code: "A.01", course: { cn: "甲", credits: 3 }, openDepartment: { code: "001", cn: "数学科学学院" }, courseType: { cn: "理论课" } } },
+      { id: 2, examType: 2, examDate: "2026-11-04", startTime: 959, endTime: 1030, examRooms: [{ room: "5401", count: 20 }], lesson: { code: "B.01", course: { cn: "乙" }, openDepartment: { code: "001", cn: "数学科学学院" } } },
+      { id: 3, examType: 2, examDate: "2026-11-08", startTime: 900, endTime: 1000, examRooms: [{ room: "A101", count: 20 }], lesson: { code: "C.01", course: { cn: "丙" }, openDepartment: { code: "004", cn: "物理系" } } },
+    ]);
+    services.repository.write("general-exams", "461", "fixture", [{
+      id: 20, courseCode: "001669", courseName: "综合法语", examDate: "2026-09-08T00:00:00+08:00",
+      startTime: 1930, endTime: 2130, dept: "数学科学学院", batch: "2026年夏季学期补考", room: "A101",
+      education: { cn: "本科" },
+    }, {
+      id: 21, courseCode: "X", courseName: "时间缺失", examDate: "2026-11-05", dept: "数学科学学院", batch: "2026秋季考试",
+    }]);
+    program.exitOverride();
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    try {
+      await program.parseAsync(["--offline", "--json", "exam", "options", "--semester", "461", "--department", "001", "--type", "补考"], { from: "user" });
+      const options = JSON.parse(String(stdout.mock.calls.at(-1)?.[0]));
+      expect(options.meta.notice).toContain("次日更新");
+      expect(options.data).toContainEqual({ dimension: "type", value: "补考", label: "补考", count: 1 });
+
+      stdout.mockClear();
+      await program.parseAsync(["--offline", "--json", "exam", "schedule", "--week-of", "2026-11-04", "--semester", "461"], { from: "user" });
+      const schedule = JSON.parse(String(stdout.mock.calls.at(-1)?.[0]));
+      expect(schedule.data).toHaveLength(7);
+      expect(schedule.data[0].date).toBe("2026-11-02");
+      expect(schedule.data[2].exams).toHaveLength(2);
+
+      stdout.mockClear();
+      await program.parseAsync(["--offline", "--json", "exam", "conflicts", "--semester", "461"], { from: "user" });
+      const conflicts = JSON.parse(String(stdout.mock.calls.at(-1)?.[0]));
+      expect(conflicts.data).toMatchObject([{ room: "5401", overlapStart: "09:59", overlapEnd: "10:00" }]);
+      expect(conflicts.meta.uncheckableExamCount).toBe(1);
     } finally {
       stdout.mockRestore();
       services.repository.close();

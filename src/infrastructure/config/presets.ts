@@ -15,8 +15,8 @@ const isKnownReadOnlyCommand = (args: string[]): boolean => {
   let index = 0;
   while (index < args.length && args[index].startsWith("--")) {
     const option = args[index++];
-    if (["--json", "--csv", "--ics", "--offline", "--no-cache", "--all", "--no-color", "--quiet", "--verbose", "--bookable", "--arrangeable", "--summary"].includes(option)) continue;
-    if (["--limit", "--offset", "--timeout", "--semester", "--department", "--major", "--grade", "--type", "--term", "--date", "--from-date", "--to-date", "--building", "--keyword", "--usage-type", "--room-type", "--available", "--free-period", "--course", "--teacher", "--location", "--span", "--weekday", "--period", "--week", "--class-type", "--course-type", "--course-classify", "--sort", "--desc", "--class", "--education", "--include-invalid", "--mode", "--multiple", "--single", "--courses"].includes(option)) {
+    if (["--json", "--csv", "--ics", "--offline", "--no-cache", "--all", "--no-color", "--quiet", "--verbose", "--bookable", "--arrangeable", "--summary", "--expand-public"].includes(option)) continue;
+    if (["--limit", "--offset", "--timeout", "--semester", "--department", "--major", "--grade", "--type", "--term", "--date", "--week-of", "--from-date", "--to-date", "--building", "--keyword", "--usage-type", "--room-type", "--available", "--free-period", "--course", "--teacher", "--location", "--span", "--weekday", "--period", "--week", "--class-type", "--course-type", "--course-classify", "--sort", "--desc", "--class", "--education", "--include-invalid", "--mode", "--multiple", "--single", "--side", "--courses", "--name"].includes(option)) {
       if (index < args.length && !args[index].startsWith("--")) index += 1;
       continue;
     }
@@ -26,11 +26,14 @@ const isKnownReadOnlyCommand = (args: string[]): boolean => {
   if (group === "calendar") return args.length === index + 1;
   if (group === "semester" || group === "department") return action === "list";
   if (group === "course") return ["search", "list", "show", "categories"].includes(action ?? "");
-  if (group === "program") return ["catalog", "document", "history", "list", "show", "module"].includes(action ?? "");
+  if (group === "program") {
+    if (action === "history") return args.length === index + 2 || args[index + 2] === "list";
+    return ["catalog", "compare", "document", "list", "show", "module"].includes(action ?? "");
+  }
   if (group === "lesson") return ["list", "options", "show", "conflicts"].includes(action ?? "");
   if (group === "classroom") return ["list", "show", "week", "available", "buildings"].includes(action ?? "");
-  if (group === "exam") return ["list", "show"].includes(action ?? "");
-  if (group === "substitute") return ["list", "summary"].includes(action ?? "");
+  if (group === "exam") return ["list", "show", "options", "schedule", "conflicts"].includes(action ?? "");
+  if (group === "substitute") return ["list", "explain", "summary"].includes(action ?? "");
   return false;
 };
 

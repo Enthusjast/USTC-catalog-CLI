@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   filterExams,
+  examFilterOptions,
+  findExamConflicts,
   filterLessons,
   filterSubstitutes,
   findLessonConflicts,
@@ -134,7 +136,48 @@ describe("web behavior adapters", () => {
     expect(relations).toHaveLength(1);
     expect(relations[0].interchangeable).toBe(true);
     expect(relations[0].multiple).toBe(true);
+    expect(relations[0].originalCourses[0]).toMatchObject({ hours: 1, credits: 1 });
     expect(filterSubstitutes(relations, undefined, "interchangeable")).toHaveLength(1);
+
+    const originalSideMultiple = normalizeSubstitutes([{
+      id: 3,
+      substituteCourses: [{ id: 1, code: "A", cn: "A" }],
+      originalCourses: [{ id: 2, code: "B", cn: "B" }, { id: 3, code: "C", cn: "C" }],
+    }]);
+    expect(originalSideMultiple[0].multiple).toBe(true);
+  });
+
+  it("sorts substitute relations before reverse merging to match the website's canonical direction", () => {
+    const relations = normalizeSubstitutes([
+      {
+        id: 20,
+        substituteCourses: [{ id: 3, code: "Z", cn: "课程 Z" }],
+        originalCourses: [{ id: 1, code: "A", cn: "课程 A" }, { id: 2, code: "B", cn: "课程 B" }],
+      },
+      {
+        id: 10,
+        substituteCourses: [{ id: 1, code: "A", cn: "课程 A" }, { id: 2, code: "B", cn: "课程 B" }],
+        originalCourses: [{ id: 3, code: "Z", cn: "课程 Z" }],
+      },
+    ]);
+
+    expect(relations).toHaveLength(1);
+    expect(relations[0]).toMatchObject({ id: 10, interchangeable: true, multiple: true });
+    expect(relations[0].substituteCourses.map((course) => course.code)).toEqual(["A", "B"]);
+    expect(relations[0].originalCourses.map((course) => course.code)).toEqual(["Z"]);
+  });
+
+  it("filters substitute relations on the requested course side", () => {
+    const relation = normalizeSubstitutes([{
+      id: 1,
+      substituteCourses: [{ id: 1, code: "A", cn: "替代课程" }],
+      originalCourses: [{ id: 2, code: "B", cn: "原课程" }],
+    }]);
+
+    expect(filterSubstitutes(relation, "替代课程", undefined, undefined, "substitute")).toHaveLength(1);
+    expect(filterSubstitutes(relation, "原课程", undefined, undefined, "substitute")).toHaveLength(0);
+    expect(filterSubstitutes(relation, "原课程", undefined, undefined, "original")).toHaveLength(1);
+    expect(filterSubstitutes(relation, "替代课程", undefined, undefined, "original")).toHaveLength(0);
   });
 
   it("unifies planned and general exams and filters teachers", () => {
@@ -165,6 +208,89 @@ describe("web behavior adapters", () => {
     expect(filterExams(exams, { span: "morning" })).toHaveLength(1);
     expect(filterExams(exams, { span: "evening" })).toHaveLength(0);
     expect(sortExams(exams, "course", true)[0].courseCode).toBe("MATH1001.01");
+  });
+
+  it("preserves general exam batch and gradation semantics and maps website building buckets", () => {
+    const exams = normalizeExams([
+      {
+        id: 10,
+        examType: 2,
+        examDate: "2026-07-25",
+        startTime: 830,
+        endTime: 1030,
+        examRooms: [{ room: "2101", count: 20 }],
+        lesson: {
+          code: "MATH1001.01",
+          course: { cn: "数学分析", credits: 6 },
+          openDepartment: { code: "001", cn: "数学科学学院" },
+          education: { cn: "研究生" },
+          courseGradation: { cn: "本研贯通" },
+          teacherAssignmentList: [{ cn: "张三" }],
+        },
+      },
+      {
+        id: 11,
+        examType: 2,
+        examDate: "2026-07-26",
+        startTime: 900,
+        endTime: 1100,
+        examRooms: [{ room: "2201", count: 20 }],
+        lesson: {
+          code: "PHYS1001.01",
+          course: { cn: "力学" },
+          openDepartment: { code: "004", cn: "物理系" },
+          education: { cn: "研究生" },
+          courseGradation: { cn: "专业基础" },
+        },
+      },
+    ], [
+      {
+        id: 12,
+        courseCode: "001669",
+        courseName: "综合法语",
+        examDate: "2026-09-08T00:00:00+08:00",
+        startTime: 1930,
+        endTime: 2130,
+        dept: "数学科学学院",
+        batch: "2026年夏季学期补考",
+        room: "A101",
+        education: { cn: "本科" },
+      },
+    ], new Map([["数学科学学院", "001"]]));
+
+    expect(exams[2]).toMatchObject({ recordKind: "general", type: "补考", batch: "2026年夏季学期补考", departmentCode: "001" });
+    expect(filterExams(exams, { department: "001" })).toHaveLength(2);
+    expect(filterExams(exams, { department: "数学科学学院" })).toHaveLength(2);
+    expect(filterExams(exams, { building: "0" }).map((exam) => exam.id)).toEqual([12]);
+    expect(filterExams(exams, { education: "本研贯通" }).map((exam) => exam.id)).toEqual([10]);
+    expect(filterExams(exams, { education: "研究生" }).map((exam) => exam.id)).toEqual([11]);
+
+    const options = examFilterOptions(exams, { department: "001" });
+    expect(options).toEqual(expect.arrayContaining([
+      { dimension: "type", value: "补考", label: "补考", count: 1 },
+      { dimension: "building", value: "0", label: "其他", count: 1 },
+      { dimension: "department", value: "004", label: "004 物理系", count: 1 },
+    ]));
+  });
+
+  it("finds only strict same-room interval overlaps and reports uncheckable exams", () => {
+    const exams = normalizeExams([
+      { id: 1, examType: 1, examDate: "2026-11-04", startTime: 900, endTime: 1000, examRooms: [{ room: "5401", count: 20 }], lesson: { code: "A.01", course: { cn: "甲" } } },
+      { id: 2, examType: 1, examDate: "2026-11-04", startTime: 959, endTime: 1030, examRooms: [{ room: "5401", count: 20 }], lesson: { code: "B.01", course: { cn: "乙" } } },
+      { id: 3, examType: 1, examDate: "2026-11-04", startTime: 1030, endTime: 1100, examRooms: [{ room: "5401", count: 20 }], lesson: { code: "C.01", course: { cn: "丙" } } },
+      { id: 4, examType: 1, examDate: "2026-11-04", examRooms: [{ room: "5401", count: 20 }], lesson: { code: "D.01", course: { cn: "缺时间" } } },
+    ], []);
+    expect(filterExams(exams, { span: "morning" }).map((exam) => exam.id)).toEqual([1, 2, 3]);
+    const report = findExamConflicts(exams);
+    expect(report.uncheckableCount).toBe(1);
+    expect(report.conflicts).toMatchObject([{
+      date: "2026-11-04",
+      room: "5401",
+      overlapStart: "09:59",
+      overlapEnd: "10:00",
+      first: { id: 1 },
+      second: { id: 2 },
+    }]);
   });
 
   it("uses the website's visible course category mapping", () => {

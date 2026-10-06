@@ -8,6 +8,9 @@ export type ResultMeta = {
   dataAsOf?: string | null;
   stale: boolean;
   unlocatedUsageCount?: number;
+  notice?: string;
+  uncheckableExamCount?: number;
+  unmappedDepartmentCount?: number;
 };
 
 export type ResultEnvelope<T> = {
@@ -83,6 +86,10 @@ export type ProgramCourse = {
   hours?: number | null;
   credits?: number | null;
   terms: string[];
+  remark?: string | null;
+  departmentCode?: string | null;
+  departmentName?: string | null;
+  examMode?: string | null;
 };
 
 export type ProgramModule = {
@@ -93,8 +100,11 @@ export type ProgramModule = {
   major?: string;
   majorDirection?: string;
   remark?: string | null;
+  requiredSubModuleNum?: number | null;
   requiredCredits?: number | null;
   requiredCourseNum?: number | null;
+  creditsUpperLimit?: number | null;
+  courseNumUpperLimit?: number | null;
   isLeaf: boolean;
   publicModuleId?: number | null;
   courses: ProgramCourse[];
@@ -105,7 +115,45 @@ export type ProgramDetail = ProgramSummary & {
   beginSemester?: string;
   requiredCredits?: number;
   awardDegree?: boolean;
+  education?: string | null;
+  studentType?: string | null;
+  majorDirection?: string | null;
+  directionGen?: boolean;
   modules: ProgramModule[];
+};
+
+export type ProgramHistoryEntry = {
+  id: string;
+  title: string;
+  section: string;
+  version?: string;
+  href: string;
+  downloadable: boolean;
+};
+
+export type ProgramComparisonCourse = {
+  change: "added" | "removed" | "moved" | "changed";
+  code: string;
+  name: string;
+  before?: ProgramCourse & { modulePath: string };
+  after?: ProgramCourse & { modulePath: string };
+  changedFields: string[];
+};
+
+export type ProgramComparisonModule = {
+  change: "added" | "removed" | "changed";
+  path: string;
+  before?: Pick<ProgramModule, "requiredSubModuleNum" | "requiredCredits" | "requiredCourseNum" | "creditsUpperLimit" | "courseNumUpperLimit" | "remark">;
+  after?: Pick<ProgramModule, "requiredSubModuleNum" | "requiredCredits" | "requiredCourseNum" | "creditsUpperLimit" | "courseNumUpperLimit" | "remark">;
+  changedFields: string[];
+};
+
+export type ProgramComparison = {
+  before: Pick<ProgramDetail, "id" | "departmentName" | "majorName" | "name" | "grade" | "trainType" | "beginSemester" | "requiredCredits">;
+  after: Pick<ProgramDetail, "id" | "departmentName" | "majorName" | "name" | "grade" | "trainType" | "beginSemester" | "requiredCredits">;
+  summary: { addedCourses: number; removedCourses: number; movedCourses: number; changedCourses: number; changedModules: number };
+  courses: ProgramComparisonCourse[];
+  modules: ProgramComparisonModule[];
 };
 
 export type ProgramCatalogEntry = {
@@ -117,9 +165,19 @@ export type ProgramCatalogEntry = {
 };
 
 export type ProgramDocumentTable = {
+  caption?: string;
   headers: string[];
+  headerRows?: string[][];
   rows: string[][];
   footnotes?: string[];
+  footnoteRows?: string[][];
+  cellSpans?: Array<{
+    section: "header" | "body" | "footnote";
+    row: number;
+    cell: number;
+    rowSpan: number;
+    colSpan: number;
+  }>;
 };
 
 export type ProgramDocumentLink = {
@@ -280,7 +338,9 @@ export type ExamRoom = {
 
 export type Exam = {
   id: number;
+  recordKind: "planned" | "general";
   type: string;
+  batch?: string;
   courseCode: string;
   courseName: string;
   departmentCode?: string;
@@ -294,9 +354,33 @@ export type Exam = {
   classes: string[];
   grades: string[];
   education?: string | null;
+  courseGradation?: string | null;
   courseCredits?: number | null;
   courseType?: string | null;
   examMode?: string | null;
+};
+
+export type ExamFilterDimension = "type" | "education" | "department" | "grade" | "building" | "date" | "span";
+
+export type ExamFilterOption = {
+  dimension: ExamFilterDimension;
+  value: string;
+  label: string;
+  count: number;
+};
+
+export type ExamScheduleDay = {
+  date: string;
+  exams: Exam[];
+};
+
+export type ExamConflict = {
+  date: string;
+  room: string;
+  overlapStart: string;
+  overlapEnd: string;
+  first: Exam;
+  second: Exam;
 };
 
 export type ExamRange = "morning" | "afternoon" | "evening";
@@ -318,6 +402,8 @@ export type SubstituteRelation = {
   multiple: boolean;
   searchText: string;
 };
+
+export type SubstituteCourseSide = "substitute" | "original";
 
 export type DepartmentNode = {
   id?: number;

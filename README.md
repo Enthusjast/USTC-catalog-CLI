@@ -8,7 +8,7 @@
 
 ### 环境要求
 
-- Node.js 20.18.1 或更新版本；
+- Node.js 22 或更新版本；
 - npm；
 - 支持 `better-sqlite3` 的本机编译或预构建环境。
 
@@ -37,7 +37,7 @@ catalog --version
 版本命令输出产品名和版本号，例如：
 
 ```text
-USTC-catalog-CLI 0.2.2
+USTC-catalog-CLI 0.3.0
 ```
 
 ### 第一次查询
@@ -60,6 +60,13 @@ catalog classroom week --summary
 
 # 导出某日教室使用记录到日历
 catalog --ics classroom list --date 2026-10-04 > classrooms.ics
+
+# 发现当前学期的考试筛选值
+catalog exam options
+
+# 查看某周考试安排，按考场检查时间冲突
+catalog exam schedule --week-of 2026-11-04
+catalog exam conflicts --semester 461
 ```
 
 默认输出是终端表格。需要脚本处理时，使用 `--json` 或 `--csv`：
@@ -85,9 +92,11 @@ catalog --ics lesson list --semester 461 --course 数学 > math.ics
 | `catalog course show <课程编号...>` | 查看一个或多个课程详情 | `catalog course show MATH1001` |
 | `catalog program catalog [关键词]` | 搜索 2013 版静态培养方案目录 | `catalog program catalog 数学` |
 | `catalog program document <编号>` | 查看静态培养方案正文 | `catalog program document 001001` |
-| `catalog program history` | 查看历史培养方案链接 | `catalog program history` |
-| `catalog program list` | 查看培养方案列表 | `catalog program list --department 001` |
-| `catalog program show <计划ID>` | 查看培养方案及课程模块 | `catalog program show 3430` |
+| `catalog program history list` | 搜索官方历史培养方案归档 | `catalog program history list --keyword 数学` |
+| `catalog program history download <条目ID>` | 下载单个历史方案 PDF（需 `--output`） | `catalog program history download history-… --output ./方案.pdf` |
+| `catalog program list` | 查看/筛选当前 API 培养方案 | `catalog program list --department 001 --name 数学` |
+| `catalog program show <计划ID>` | 查看方案；可按需展开公开模块 | `catalog program show 3430 --expand-public` |
+| `catalog program compare <旧ID> <新ID>` | 对比两个 API 培养方案 | `catalog program compare 3430 3520` |
 | `catalog program module <模块ID>` | 查看培养方案模块 | `catalog program module 10001 --courses` |
 | `catalog lesson list` | 查询全校教学班 | `catalog lesson list --course 数学` |
 | `catalog lesson options` | 查看学期教学班筛选值与数量 | `catalog lesson options --semester 461` |
@@ -99,9 +108,13 @@ catalog --ics lesson list --semester 461 --course 数学 > math.ics
 | `catalog classroom show <教室>` | 查看单个教室 | `catalog classroom show 2303` |
 | `catalog classroom week` | 查看一周教室使用情况或按教室汇总 | `catalog classroom week --summary` |
 | `catalog exam list` | 查询考试 | `catalog exam list --course 微积分` |
+| `catalog exam options` | 查看联动考试筛选值和数量 | `catalog exam options --department 001` |
+| `catalog exam schedule` | 按日或整周查看考试日程 | `catalog exam schedule --week-of 2026-11-04` |
+| `catalog exam conflicts` | 检查同考场考试时间重叠 | `catalog exam conflicts --semester 461` |
 | `catalog exam show <考试ID>` | 查看单个考试 | `catalog exam show 13138 --semester 441` |
 | `catalog substitute list` | 查询替代课程关系 | `catalog substitute list --course 数学分析` |
-| `catalog substitute summary` | 查看网页提供的替代关系汇总表链接 | `catalog substitute summary` |
+| `catalog substitute explain <课程>` | 查看课程参与的直接替代关系 | `catalog substitute explain MATH1001` |
+| `catalog substitute summary` | 查看或下载教务处替代关系汇总表 | `catalog substitute summary --download ./交流学校课程替代关系汇总表.pdf` |
 | `catalog cache status` | 查看缓存数据库和快照统计 | `catalog cache status` |
 | `catalog cache clear` | 清理缓存 | `catalog cache clear --yes` |
 | `catalog cache prefetch` | 预取学期与指定日期缓存 | `catalog cache prefetch --semester 461 --date 2026-10-04` |
@@ -111,6 +124,10 @@ catalog --ics lesson list --semester 461 --course 数学 > math.ics
 | `catalog preset save/run/list/delete` | 保存和重用只读查询 | `catalog preset save 数学课 -- lesson list --course 数学` |
 
 学期、计划、课堂号和考试 ID 应使用网站返回的实际值。可先执行 `catalog semester list`、`catalog department list` 或不带筛选条件的列表命令发现可用值。
+
+考试查询数据由网页次日更新，并非实时安排。命令输出中的抓取时间仅表示 CLI 请求时间；实时安排请以综合教务系统为准。
+
+替代课程关系也由网页次日更新。`substitute list --side <值>` 可把课程条件限定在关系一侧，值为 `替代方` 或 `被替代方`；`substitute explain <课程>` 只显示直接关系，不推断传递替代链。汇总表下载必须明确提供路径；CLI 会校验官方 HTTPS 来源和 PDF 文件特征，并拒绝覆盖现有文件。
 
 ## 输出格式
 
@@ -171,7 +188,7 @@ catalog --csv lesson list --department 001 > lessons.csv
       "args": [
         "--yes",
         "--package",
-        "ustc-catalog-cli@0.2.2",
+        "ustc-catalog-cli@0.3.0",
         "catalog-mcp"
       ]
     }
@@ -391,9 +408,9 @@ npm pack --dry-run
 npm pack
 ```
 
-推送形如 `v0.2.2` 的 Git tag 会触发 GitHub Actions 发布流程。发布前需要在 npm 包设置中为该 GitHub 仓库配置 Trusted Publishing（OIDC）；日常开发不需要 npm token 写入仓库。
+推送形如 `v0.3.0` 的 Git tag 会触发 GitHub Actions 发布流程。发布前需要在 npm 包设置中为该 GitHub 仓库配置 Trusted Publishing（OIDC）；日常开发不需要 npm token 写入仓库。
 
-当前包生成的本地压缩包名称类似 `ustc-catalog-cli-0.2.2.tgz`。
+当前包生成的本地压缩包名称类似 `ustc-catalog-cli-0.3.0.tgz`。
 
 ## 详细文档
 

@@ -1,10 +1,10 @@
 # USTC Catalog CLI 使用说明
 
-- 版本：0.2.2
-- 文档日期：2026-10-04
+- 版本：0.3.0
+- 文档日期：2026-10-06
 - 命令名：catalog
 - 语言：中文
-- 运行环境：Node.js >=20.18.1
+- 运行环境：Node.js >=22
 
 ## 1. 快速开始
 
@@ -83,8 +83,11 @@ catalog course categories
 catalog program catalog [keyword]
 catalog program document <code>
 catalog program history
+catalog program history list [--keyword <text>]
+catalog program history download <entryId> --output <path>
 catalog program list
-catalog program show <id>
+catalog program show <id> [--term <term>] [--expand-public]
+catalog program compare <beforeId> <afterId>
 catalog program module <id>
 
 catalog lesson list
@@ -139,7 +142,7 @@ catalog preset list|save|run|delete
 执行 `catalog --version` 会输出产品名和版本号，例如：
 
 ```text
-USTC-catalog-CLI 0.2.2
+USTC-catalog-CLI 0.3.0
 ```
 
 ### 4.1 选项约束
@@ -640,7 +643,9 @@ JSON 结构示例：
         {
           "type": "table",
           "table": {
+            "caption": "课程学分要求",
             "headers": ["课程名称", "学分"],
+            "headerRows": [["课程名称", "学分"]],
             "rows": [["数学分析", "6"]]
           }
         },
@@ -652,6 +657,8 @@ JSON 结构示例：
 }
 ```
 
+当官网表格使用 `rowspan` 或 `colspan` 时，JSON 保留原始单元格及 `cellSpans` 元数据；终端表格和 CSV 则把跨行/跨列单元格展开成矩形，并重复合并单元格文本。表格标题、分层表头和脚注也会保留。
+
 ### 9.3 program history
 
 语法：
@@ -660,7 +667,26 @@ JSON 结构示例：
 catalog program history
 ```
 
-输出网页提供的历史培养方案链接。使用 --json 时返回规范化的 label/value 对象。
+不带子命令时显示教务处历史培养方案入口；`--json` 返回规范化的链接对象。
+
+使用 `list` 解析历史归档页，获取稳定的本地条目 ID、类别、版本、标题和官方链接：
+
+```bash
+catalog program history list
+catalog program history list --keyword 数学
+catalog --json program history list --keyword 2024
+catalog --csv program history list > program-history.csv
+```
+
+`--keyword` 在已下载的归档索引上按空格分词，并要求所有词都匹配。索引 HTML 使用 SQLite 最近结果缓存；默认先取新数据，网络失败时回退缓存并标记抓取时间。不同的修订文件或专业方案都可作为条目，但并非每条都能下载。如果教务处返回统一认证提示页或无法识别的 HTML，CLI 会报告错误且不把该页面写入归档缓存；CLI 不执行登录或绕过认证。
+
+只下载 `list` 中标记为 PDF/附件的一个条目，必须给出显式输出路径：
+
+```bash
+catalog program history download history-0123456789ab --output ./数学方案.pdf
+```
+
+下载不支持 `--offline`，不覆盖已有文件，也不会自动创建父目录。下载器只访问教务处官方 HTTPS 主机，拒绝跨主机重定向、非 PDF MIME/签名文件和超过 32 MiB 的文件；成功后返回绝对路径、字节数及 SHA-256。MCP 仅列出历史条目，不提供文件下载工具。
 
 ### 9.4 program list
 
@@ -678,6 +704,7 @@ catalog program list [options]
 | `--major <id>` | 专业代码或内部 ID |
 | `--grade <grade>` | 年级，例如 2026 |
 | `--type <type>` | 培养类型，例如 主修 |
+| `--name <text>` | 培养方案名称；空格分隔的词都必须匹配 |
 
 示例：
 
@@ -686,16 +713,17 @@ catalog program list
 catalog program list --department 001
 catalog program list --major 20 --grade 2026
 catalog program list --type 主修
+catalog program list --name "数学 应用"
 ```
 
-这是对 /api/teach/program/tree 的扁平化展示，默认列出计划 ID、院系、专业、计划名称、年级和培养类型。
+这是对 `/api/teach/program/tree` 的扁平化展示；选项在本地对该 API 树过滤。默认列出计划 ID、院系、专业、计划名称、年级和培养类型。
 
 ### 9.5 program show
 
 语法：
 
 ```bash
-catalog program show <id> [--term <term>]
+catalog program show <id> [--term <term>] [--expand-public]
 ```
 
 id 是 API 培养方案 ID，不是静态正文代码。例如：
@@ -703,14 +731,27 @@ id 是 API 培养方案 ID，不是静态正文代码。例如：
 ```bash
 catalog program show 3430
 catalog program show 3430 --term 1秋
+catalog program show 3430 --expand-public
 catalog --json program show 3430
 ```
 
-`--term` 在本地递归过滤模块课程，只保留包含该开课学期的课程。
+`--term` 在本地递归过滤模块课程，只保留包含该开课学期的课程。默认保留 API 返回的公开模块引用 ID，不请求引用模块详情；若方案含此类引用，提示中会指出待展开数量。传入 `--expand-public` 后，CLI 递归调用 `/api/teach/course-module/info/{id}` 并把引用替换为对应模块；循环引用会报错，不会无限递归。
 
-默认表格先显示计划摘要，再显示模块和课程行。JSON data 是完整计划对象，包含递归 modules。
+默认表格先显示计划摘要，再显示模块和课程行。未展开引用的课程数显示“待展开”，不会将 API 未返回的课程误报为 0。JSON data 保留递归模块和公共引用 ID；使用 `--expand-public` 才包含引用模块的课程。展开请求与培养方案主体分别缓存，并遵循默认在线刷新/网络失败回退最近缓存的策略。
 
-### 9.6 program module
+### 9.6 program compare
+
+```bash
+catalog program compare <beforeId> <afterId>
+catalog --json program compare 3430 3520
+catalog --csv program compare 3430 3520 > program-diff.csv
+```
+
+比较对象必须是 `/api/teach/program/tree` 中的两个 API 计划 ID。此命令会自动展开双方的公开模块引用，输出摘要、课程增删/信息变化/模块迁移及模块学分、门数、上限和备注变化。课程优先按“课程编号 + 模块路径”匹配；在两侧各只剩一个同编号未匹配项时识别为迁移，重复课程导致匹配不唯一时会保留为增删，不猜测映射。模块路径由模块类别、专业/方向名称及重复项序号构成。
+
+这只是两份 API 方案数据的结构化差异，不推断学生已修课程、毕业审核结果，也不自动把旧归档 PDF 与当前 API 计划关联。静态旧版正文仍通过 `program document` 单独读取。
+
+### 9.7 program module
 
 语法：
 
@@ -983,11 +1024,11 @@ catalog exam list [options]
 | 选项 | 说明 |
 | --- | --- |
 | `--semester <id-or-code>` | 学期 ID、代码或名称 |
-| `--type <type>` | 考试类型，例如 期末考试 |
-| `--education <name>` | 学历层次 |
-| `--department <code>` | 开课单位代码 |
+| `--type <type>` | 考试类型，例如期中考试、期末考试、补考 |
+| `--education <name>` | 学历层次；“本研贯通”按课程 gradation 匹配 |
+| `--department <code-or-name>` | 开课单位代码或名称；包含通用考试的院系名称映射 |
 | `--grade <grade>` | 年级 |
-| `--building <code>` | 教学楼代码或前缀 |
+| `--building <code>` | 教学楼代码/前缀；`0` 或 `其他` 表示网页归入“其他”的考场 |
 | `--date <YYYY-MM-DD>` | 考试日期 |
 | `--course <text>` | 课程名称或课程号，多 token 全部匹配 |
 | `--teacher <text>` | 教师 |
@@ -1011,13 +1052,48 @@ catalog exam list --semester 441 --span evening --sort time --desc
 catalog exam list --semester 441 --course 微积分 --teacher 张三
 ```
 
-计划内考试和通用考试会被规范化为同一套 Exam 模型。默认表格字段：
+计划内考试和通用考试会被规范化为同一套 Exam 模型，并保留记录来源与通用考试批次。批次含“补考”时类型显示为“补考”，其他通用考试显示为“通用考试”。默认表格字段：
 
 ```text
-课程号、课程名、开课单位、授课教师、考试类型、日期、时间、地点、人数、上课班级、学历、年级、考核方式
+课程号、课程名、开课单位、授课教师、考试类型、学分、课程类型、日期、时间、地点、人数、上课班级、学历、年级、考核方式
 ```
 
-### 12.2 exam show
+考试查询数据由网页次日更新，并非实时安排。CLI 的 `fetchedAt` 表示抓取时间，不代表考试数据刚刚发布；表格/CSV 会在 stderr 提示，JSON/MCP 在 `meta.notice` 中返回。实时安排请以综合教务系统为准。
+
+### 12.2 exam options
+
+查看当前学期的考试筛选选项及数量，也可附加 `exam list` 支持的筛选条件：
+
+```bash
+catalog exam options --semester 441
+catalog exam options --semester 441 --department 001 --type 补考
+```
+
+每个选项的数量按其他已提供筛选条件联动计算，但计算某个筛选维度时会忽略该维度自身的已选值，便于发现可切换的选项。选项由计划内与通用考试数据本地计算，不请求额外的考试接口。
+
+### 12.3 exam schedule
+
+必须且只能提供单日 `--date` 或周锚点 `--week-of`；整周按星期一至星期日计算。其余筛选条件与 `exam list` 相同：
+
+```bash
+catalog exam schedule --date 2026-11-04 --semester 461
+catalog exam schedule --week-of 2026-11-04 --semester 461 --department 001
+```
+
+表格/CSV 每天一行并概览场次；JSON 返回完整的每日考试数组（整周结果包含七天，即使某日没有考试）。
+
+### 12.4 exam conflicts
+
+检查筛选范围内同一天、同一考场的不同考试记录是否存在实际时间重叠：
+
+```bash
+catalog exam conflicts --semester 461
+catalog exam conflicts --semester 461 --date 2026-11-04
+```
+
+时间区间按 `[开始, 结束)` 判断，前一场结束时间等于后一场开始时间不算冲突。缺少有效日期、起止时间或考场的记录不参与检查，数量通过 `meta.uncheckableExamCount` 返回并在表格/CSV 的 stderr 提示。公开接口没有考生选课关系，因此该命令只检查考场占用，不推断个人考试冲突。
+
+### 12.5 exam show
 
 语法：
 
@@ -1049,6 +1125,7 @@ catalog substitute list [options]
 | 选项 | 说明 |
 | --- | --- |
 | `--course <text>` | 课程编号或名称，多 token 全部匹配 |
+| `--side <value>` | 只在关系指定一侧匹配课程；值为 `替代方` 或 `被替代方`，须同时提供 `--course` |
 | `--mode interchangeable` | 只显示同级可互换关系 |
 | `--mode straight` | 只显示单向高级替代关系 |
 | `--multiple` | 只显示多门关系 |
@@ -1061,27 +1138,45 @@ catalog substitute list [options]
 ```bash
 catalog substitute list
 catalog substitute list --course 数学分析
+catalog substitute list --course MATH1001 --side 被替代方
 catalog substitute list --mode interchangeable --multiple
 catalog --json substitute list --single
+catalog substitute explain MATH1001
+catalog substitute explain 数学分析 --side 替代方
 ```
 
-网页接口返回的反向关系会合并为一条 interchangeable=true 关系。CLI 使用两侧课程数组长度判断 multiple，不会复制网页中数组与数字比较的错误。
+网页接口返回完整关系数组；网页上的搜索、关系类型、单双门过滤都在浏览器本地完成。CLI 同样在本地规范化及过滤，并先按网页列表顺序排序再合并反向关系。反向关系合并为一条 `interchangeable=true` 关系。
+
+CLI 的“多门”按替代方和被替代方两侧各自的课程数组长度判断。当前网页脚本把 `originalCourses` 数组直接与数字比较，可能漏标被替代方含多门课程的关系；CLI 按数组长度修正该缺陷，因此同一快照下网页与 CLI 的“多门”数量可能不同。
 
 默认表格字段：
 
 ```text
-替代课程、原课程、关系、门数
+替代方课程、被替代课程、替代关系、方向、门数
 ```
 
-### 13.2 substitute summary
+表格和 CSV 以关系为一行，分别显示替代方课程、被替代课程、同级/单向关系、关系方向和门数，并在 API 提供时显示每门课程的学分和学时。JSON 保留规范化课程对象。结果元数据会说明网页数据为次日更新的非实时数据；文本输出也会显示提示。
+
+### 13.2 substitute explain
+
+语法：
+
+```bash
+catalog substitute explain <课程名称或编号> [--side <value>]
+```
+
+按课程名称或编号查找它参与的直接替代关系，搜索规则与 `substitute list --course` 相同。默认检查关系两侧；`--side` 的值可以是 `替代方` 或 `被替代方`，指定后只检查一侧。该命令不沿着 A→B→C 关系推导 A→C，也不会把“可替代”解释为教务审批结论。
+
+### 13.3 substitute summary
 
 语法：
 
 ```bash
 catalog substitute summary
+catalog substitute summary --download ./交流学校课程替代关系汇总表.pdf
 ```
 
-输出网页提供的交流学校课程替代关系汇总表外链。使用 `--json` 时返回 label/value 对象。
+不带选项时输出网页提供的交流学校课程替代关系汇总表外链；使用 `--json` 时返回 label/value 对象。`--download <path>` 会直接下载教务处附件并报告保存路径、大小和 SHA-256；父目录必须已经存在，目标文件已存在时拒绝覆盖。下载固定使用官网 HTTPS 链接，只允许跳转到 `www.teach.ustc.edu.cn`，并检查响应 MIME、PDF 文件签名和 32 MiB 大小上限。下载需要联网，不支持 `--offline`；此下载操作不加入 MCP 工具，MCP 仍只返回官方链接。
 
 ## 14. 教学日历占位命令
 
@@ -1313,7 +1408,7 @@ catalog --json --verbose lesson list --semester 461 \
 从 0.2.0 开始，npm 包同时提供 `catalog-mcp` 命令。它使用本地 stdio 传输，适用于 Claude Desktop、Cursor、VS Code 等支持 MCP 的客户端：
 
 ```bash
-npm install --global ustc-catalog-cli@0.2.2
+npm install --global ustc-catalog-cli@0.3.0
 catalog-mcp
 ```
 
@@ -1339,7 +1434,7 @@ MCP 客户端配置示例：
       "args": [
         "--yes",
         "--package",
-        "ustc-catalog-cli@0.2.2",
+        "ustc-catalog-cli@0.3.0",
         "catalog-mcp"
       ]
     }
@@ -1358,14 +1453,14 @@ MCP 服务会继承 CLI 的配置环境变量：
 | `CATALOG_BASE_URL` | 覆盖 catalog 网站地址 | `https://catalog.ustc.edu.cn` |
 | `CATALOG_CACHE_DIR` | 指定 SQLite 缓存目录 | 系统用户缓存目录 |
 | `CATALOG_TIMEOUT_MS` | CLI 单次网络请求超时时间 | `15000` |
-| `CATALOG_USER_AGENT` | 覆盖 HTTP User-Agent | `ustc-catalog-cli/0.2.2` |
+| `CATALOG_USER_AGENT` | 覆盖 HTTP User-Agent | `ustc-catalog-cli/0.3.0` |
 | `CATALOG_MCP_PROCESS_TIMEOUT_MS` | MCP 子进程总超时时间 | `120000` |
 
 `CATALOG_CACHE_DIR` 应配置在 MCP 服务的 `env` 中，不作为模型可修改的工具参数。MCP 工具不暴露 `cache clear`。
 
 ### 20.3 工具清单
 
-MCP 共提供 27 个只读工具：
+MCP 共提供 33 个只读工具：
 
 | 工具 | 对应 CLI 命令 | 用途 |
 | --- | --- | --- |
@@ -1379,8 +1474,10 @@ MCP 共提供 27 个只读工具：
 | `ustc_program_catalog` | `program catalog` | 静态培养方案目录 |
 | `ustc_program_document` | `program document` | 静态培养方案正文 |
 | `ustc_program_history` | `program history` | 历史培养方案链接 |
+| `ustc_program_history_list` | `program history list` | 历史方案归档索引（不下载文件） |
 | `ustc_program_list` | `program list` | API 培养方案列表 |
 | `ustc_program_show` | `program show` | 培养方案详情 |
+| `ustc_program_compare` | `program compare` | 比较两个 API 培养方案 |
 | `ustc_program_module` | `program module` | 培养方案模块 |
 | `ustc_lesson_list` | `lesson list` | 全校教学班 |
 | `ustc_lesson_options` | `lesson options` | 学期动态筛选选项和节次数量 |
@@ -1392,8 +1489,12 @@ MCP 共提供 27 个只读工具：
 | `ustc_classroom_show` | `classroom show` | 单个教室 |
 | `ustc_classroom_week` | `classroom week` | 一周教室使用情况 |
 | `ustc_exam_list` | `exam list` | 考试列表 |
+| `ustc_exam_options` | `exam options` | 联动考试筛选选项和值数量 |
+| `ustc_exam_schedule` | `exam schedule` | 单日或整周考试日程 |
+| `ustc_exam_conflicts` | `exam conflicts` | 同日同考场时间重叠 |
 | `ustc_exam_show` | `exam show` | 考试详情 |
 | `ustc_substitute_list` | `substitute list` | 替代课程关系 |
+| `ustc_substitute_explain` | `substitute explain` | 查询课程参与的直接替代关系 |
 | `ustc_substitute_summary` | `substitute summary` | 替代关系汇总表链接 |
 | `ustc_cache_status` | `cache status` | 缓存统计 |
 
@@ -1419,8 +1520,10 @@ MCP 共提供 27 个只读工具：
 | `ustc_course_show` | `codes: string[]`，至少一个课程编号 |
 | `ustc_program_catalog` | `keyword?: string` |
 | `ustc_program_document` | `code: string` |
-| `ustc_program_list` | `department?: string`、`major?: string`、`grade?: string`、`type?: string` |
-| `ustc_program_show` | `id: integer`；`term?: string` |
+| `ustc_program_history_list` | `keyword?: string` |
+| `ustc_program_list` | `department?: string`、`major?: string`、`grade?: string`、`type?: string`、`name?: string` |
+| `ustc_program_show` | `id: integer`；`term?: string`；`expandPublic?: boolean` |
+| `ustc_program_compare` | `beforeId: integer`；`afterId: integer`；自动展开双方的公开引用模块 |
 | `ustc_program_module` | `id: integer`；`courses?: boolean` |
 | `ustc_lesson_list` | `semester?: string\|integer`、`department?: string`、`education?: string`、`classType?: string`、`course?: string`、`teacher?: string`、`location?: string`、`span?: string`、`weekday?: 1..7`、`period?: 1..13`、`week?: string`、`courseType?: string`、`courseClassify?: string`、`sort?: code\|course\|department\|department-code\|teacher\|location\|students`、`desc?: boolean` |
 | `ustc_lesson_options` | `semester?: string\|integer` 及可传入的教学班筛选项；返回学历、课堂类型、课程范畴分类、院系、节次的选项和值数量 |
@@ -1431,16 +1534,20 @@ MCP 共提供 27 个只读工具：
 | `ustc_classroom_show` | `room: string`；`date?: YYYY-MM-DD` |
 | `ustc_classroom_week` | `date?: YYYY-MM-DD`、`building?: string`、`usageType?: string`、`roomType?: string`、`bookable?: boolean`、`arrangeable?: boolean`、`summary?: boolean` |
 | `ustc_exam_list` | `semester?: string\|integer`、`type?: string`、`education?: string`、`department?: string`、`grade?: string`、`building?: string`、`date?: YYYY-MM-DD`、`course?: string`、`teacher?: string`、`location?: string`、`className?: string`、`span?: morning\|afternoon\|evening`、`sort?: course\|department\|teacher\|location\|date\|time\|class`、`desc?: boolean` |
+| `ustc_exam_options` | 与 `ustc_exam_list` 相同的筛选参数（不含排序）；返回按其他已传筛选联动计算的选项和值数量 |
+| `ustc_exam_schedule` | `semester?: string\|integer`；`date?: YYYY-MM-DD` 或 `weekOf?: YYYY-MM-DD`（必须且只能提供一个）；以及考试筛选参数 |
+| `ustc_exam_conflicts` | 与 `ustc_exam_list` 相同的筛选参数（不含排序）；只检查同日同考场的考试时间重叠 |
 | `ustc_exam_show` | `id: integer`；`semester: string\|integer` |
-| `ustc_substitute_list` | `course?: string`、`mode?: interchangeable\|straight`、`multiple?: boolean`、`single?: boolean` |
+| `ustc_substitute_list` | `course?: string`、`side?: 替代方\|被替代方`（需要 `course`）、`mode?: interchangeable\|straight`、`multiple?: boolean`、`single?: boolean` |
+| `ustc_substitute_explain` | `course: string`、`side?: 替代方\|被替代方`；仅查直接关系，不推导传递关系 |
 
-`semester list`、`department list`、`calendar`、`program history`、`substitute summary` 和 `cache status` 不需要业务参数。`ustc_substitute_list` 的 `multiple` 与 `single` 互斥。
+`semester list`、`department list`、`calendar`、`program history`、`substitute summary` 和 `cache status` 不需要业务参数。`ustc_substitute_list` 的 `multiple` 与 `single` 互斥；历史方案 PDF 和替代课程汇总表的文件下载都不通过 MCP 提供。
 
 ### 20.5 返回结构
 
 成功时，MCP 工具同时返回 `structuredContent` 和文本形式的 JSON。两者内容相同：
 
-教室查询的 `meta` 还可能包含 `unlocatedUsageCount`，表示本次课表中无法关联到网页可见教室目录的记录数；房间数据仍只包含可关联的教室。
+教室查询的 `meta` 还可能包含 `unlocatedUsageCount`，表示本次课表中无法关联到网页可见教室目录的记录数；房间数据仍只包含可关联的教室。考试和替代课程查询会在 `meta.notice` 中返回网页的次日更新提示；通用考试院系映射不完整时提供 `unmappedDepartmentCount`；`exam conflicts` 还可能包含 `uncheckableExamCount`。替代关系只表达 API 中的直接关系，不代表学校审批结论。
 
 ```json
 {

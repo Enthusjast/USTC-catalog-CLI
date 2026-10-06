@@ -43,17 +43,96 @@ const tableFrom = ($: ReturnType<typeof load>, table: Parameters<ReturnType<type
   const explicitHeader = headRows[0] ?? allRows.find((row) => $(row).find("th").length > 0);
   const fallbackHeader = explicitHeader ?? allRows.reduce<CheerioInput | undefined>((best, row) =>
     !best || rowCells(row).length > rowCells(best).length ? row : best, undefined);
-  const headers = fallbackHeader ? rowCells(fallbackHeader) : [];
+  const firstHeaderIndex = allRows.findIndex((row) => $(row).find("th").length > 0);
+  const consecutiveHeaderRows: CheerioInput[] = [];
+  for (const row of firstHeaderIndex < 0 ? [] : allRows.slice(firstHeaderIndex)) {
+    const cells = $(row).find("th,td").toArray();
+    if (cells.length === 0 || !cells.every((cell) => $(cell).is("th"))) break;
+    consecutiveHeaderRows.push(row);
+  }
+  const headerElements = headRows.length > 0
+    ? headRows
+    : consecutiveHeaderRows.length > 0
+      ? consecutiveHeaderRows
+      : fallbackHeader ? [fallbackHeader] : [];
+  const headerRows = headerElements.map(rowCells);
+  const headers = headerRows[0] ?? [];
   const footnoteSet = new Set(footnoteRows);
   const dataSource = bodyRows.length > 0 ? bodyRows : allRows;
+  const headerSet = new Set(headerElements);
   const dataRows = dataSource
-    .filter((row) => row !== fallbackHeader && !footnoteSet.has(row))
+    .filter((row) => !headerSet.has(row) && !footnoteSet.has(row))
     .map(rowCells);
-  const footnotes = footnoteRows.flatMap(rowCells);
+  const footnoteRowValues = footnoteRows.map(rowCells);
+  const footnotes = footnoteRowValues.flat();
+  const spansFor = (
+    elements: CheerioInput[],
+    section: "header" | "body" | "footnote",
+  ): NonNullable<ProgramDocumentTable["cellSpans"]> => elements.flatMap((row, rowIndex) =>
+    $(row).find("th,td").toArray().flatMap((cell, cellIndex) => {
+      const rowSpanText = $(cell).attr("rowspan");
+      const colSpan = Math.max(1, Number($(cell).attr("colspan") ?? 1) || 1);
+      const rowSpan = rowSpanText === "0"
+        ? elements.length - rowIndex
+        : Math.max(1, Number(rowSpanText ?? 1) || 1);
+      return rowSpan > 1 || colSpan > 1
+        ? [{ section, row: rowIndex, cell: cellIndex, rowSpan, colSpan }]
+        : [];
+    }),
+  );
+  const cellSpans = [
+    ...spansFor(headerElements, "header"),
+    ...spansFor(dataSource.filter((row) => !headerSet.has(row) && !footnoteSet.has(row)), "body"),
+    ...spansFor(footnoteRows, "footnote"),
+  ];
+  const caption = nodeText($, tableNode.find("caption").first());
   return {
+    ...(caption ? { caption } : {}),
     headers,
+    ...(headerRows.length > 0 ? { headerRows } : {}),
     rows: dataRows,
+    ...(footnoteRowValues.length > 0 ? { footnoteRows: footnoteRowValues } : {}),
     ...(footnotes.length > 0 ? { footnotes } : {}),
+    ...(cellSpans.length > 0 ? { cellSpans } : {}),
+  };
+};
+
+export type ExpandedProgramDocumentTable = {
+  headerRows: string[][];
+  rows: string[][];
+  footnoteRows: string[][];
+};
+
+export const expandProgramDocumentTable = (table: ProgramDocumentTable): ExpandedProgramDocumentTable => {
+  const spans = table.cellSpans ?? [];
+  const expand = (rows: string[][], section: "header" | "body" | "footnote"): string[][] => {
+    const grid: string[][] = rows.map(() => []);
+    const occupied: boolean[][] = rows.map(() => []);
+    const sectionSpans = spans.filter((span) => span.section === section);
+    for (let row = 0; row < rows.length; row += 1) {
+      let column = 0;
+      for (let cell = 0; cell < rows[row].length; cell += 1) {
+        while (occupied[row][column]) column += 1;
+        const span = sectionSpans.find((item) => item.row === row && item.cell === cell);
+        const rowSpan = Math.min(span?.rowSpan ?? 1, rows.length - row);
+        const colSpan = span?.colSpan ?? 1;
+        for (let targetRow = row; targetRow < row + rowSpan; targetRow += 1) {
+          for (let targetColumn = column; targetColumn < column + colSpan; targetColumn += 1) {
+            grid[targetRow][targetColumn] = rows[row][cell] ?? "";
+            occupied[targetRow][targetColumn] = true;
+          }
+        }
+        column += colSpan;
+      }
+    }
+    const width = grid.reduce((maximum, row) => Math.max(maximum, row.length), 0);
+    return grid.map((row) => Array.from({ length: width }, (_, index) => row[index] ?? ""));
+  };
+
+  return {
+    headerRows: expand(table.headerRows ?? (table.headers.length > 0 ? [table.headers] : []), "header"),
+    rows: expand(table.rows, "body"),
+    footnoteRows: expand(table.footnoteRows ?? (table.footnotes?.length ? [table.footnotes] : []), "footnote"),
   };
 };
 

@@ -20,8 +20,10 @@ export const MCP_TOOL_NAMES = [
   "ustc_program_catalog",
   "ustc_program_document",
   "ustc_program_history",
+  "ustc_program_history_list",
   "ustc_program_list",
   "ustc_program_show",
+  "ustc_program_compare",
   "ustc_program_module",
   "ustc_lesson_list",
   "ustc_lesson_options",
@@ -33,8 +35,12 @@ export const MCP_TOOL_NAMES = [
   "ustc_classroom_show",
   "ustc_classroom_week",
   "ustc_exam_list",
+  "ustc_exam_options",
+  "ustc_exam_schedule",
+  "ustc_exam_conflicts",
   "ustc_exam_show",
   "ustc_substitute_list",
+  "ustc_substitute_explain",
   "ustc_substitute_summary",
   "ustc_cache_status",
 ] as const;
@@ -52,6 +58,9 @@ const outputSchema = {
     dataAsOf: z.string().nullable().optional(),
     stale: z.boolean(),
     unlocatedUsageCount: z.number().int().nonnegative().optional(),
+    notice: z.string().optional(),
+    uncheckableExamCount: z.number().int().nonnegative().optional(),
+    unmappedDepartmentCount: z.number().int().nonnegative().optional(),
   }),
   data: z.unknown(),
 };
@@ -218,18 +227,29 @@ export const registerCatalogTools = (server: McpServer, executor: CliExecutor): 
     ...commonSchema(),
   }, (args) => commandArgs(["program", "history"], args));
 
-  register(server, executor, "ustc_program_list", "列出 API 培养方案，并按院系、专业、年级和培养类型筛选。", {
+  register(server, executor, "ustc_program_history_list", "列出教务处公开的历史培养方案归档条目；不下载文件。", {
+    ...commonSchema(),
+    keyword: z.string().optional().describe("按版本、类别或方案名称筛选。"),
+  }, (args) => {
+    const command = commandArgs(["program", "history", "list"], args);
+    appendOption(command, "--keyword", stringValue(args, "keyword"));
+    return command;
+  });
+
+  register(server, executor, "ustc_program_list", "列出 API 培养方案，并按院系、专业、年级、培养类型和名称筛选。", {
     ...commonSchema(),
     department: z.string().optional().describe("院系代码或内部 ID。"),
     major: z.string().optional().describe("专业代码或内部 ID。"),
     grade: z.string().optional().describe("年级。"),
     type: z.string().optional().describe("培养类型。"),
+    name: z.string().optional().describe("培养方案名称；多个空格分隔的词必须全部匹配。"),
   }, (args) => {
     const command = commandArgs(["program", "list"], args);
     appendOption(command, "--department", stringValue(args, "department"));
     appendOption(command, "--major", stringValue(args, "major"));
     appendOption(command, "--grade", stringValue(args, "grade"));
     appendOption(command, "--type", stringValue(args, "type"));
+    appendOption(command, "--name", stringValue(args, "name"));
     return command;
   });
 
@@ -237,11 +257,22 @@ export const registerCatalogTools = (server: McpServer, executor: CliExecutor): 
     ...commonSchema(),
     id: z.number().int().describe("API 培养方案 ID。"),
     term: z.string().optional().describe("只保留指定开课学期的课程。"),
+    expandPublic: z.boolean().optional().describe("是否递归加载网站标记的公开引用模块。"),
   }, (args) => {
     const command = commandArgs(["program", "show"], args);
     appendOption(command, "--term", stringValue(args, "term"));
+    appendOption(command, "--expand-public", args.expandPublic);
     return positionals(command, [String(numberValue(args, "id"))]);
   });
+
+  register(server, executor, "ustc_program_compare", "比较两个 API 培养方案，自动展开公开引用模块并列出课程与模块要求变化。", {
+    ...commonSchema(),
+    beforeId: z.number().int().describe("较早或基准培养方案 ID。"),
+    afterId: z.number().int().describe("较新或目标培养方案 ID。"),
+  }, (args) => positionals(commandArgs(["program", "compare"], args), [
+    String(numberValue(args, "beforeId")),
+    String(numberValue(args, "afterId")),
+  ]));
 
   register(server, executor, "ustc_program_module", "查看 API 培养方案模块，可选择同时返回模块内课程。", {
     ...commonSchema(),
@@ -428,14 +459,14 @@ export const registerCatalogTools = (server: McpServer, executor: CliExecutor): 
     return command;
   });
 
-  register(server, executor, "ustc_exam_list", "查询计划内考试和通用考试，并按学期、课程、教师、地点、时间段等条件筛选。", {
+  register(server, executor, "ustc_exam_list", "查询计划内考试和补考/通用考试，并按学期、课程、教师、地点、时间段等条件筛选。", {
     ...commonSchema(),
     semester: z.union([z.string(), z.number().int()]).optional().describe("学期 ID、学期代码或中文名称；省略时使用默认学期。"),
     type: z.string().optional().describe("考试类型。"),
     education: z.string().optional().describe("学历层次。"),
-    department: z.string().optional().describe("开课单位代码。"),
+    department: z.string().optional().describe("开课单位代码或名称。"),
     grade: z.string().optional().describe("年级。"),
-    building: z.string().optional().describe("教学楼代码或前缀。"),
+    building: z.string().optional().describe("网页楼栋代码；0 或其他表示未识别楼栋。"),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("考试日期。"),
     course: z.string().optional().describe("课程名称或课程号。"),
     teacher: z.string().optional().describe("教师。"),
@@ -463,6 +494,101 @@ export const registerCatalogTools = (server: McpServer, executor: CliExecutor): 
     return command;
   });
 
+  register(server, executor, "ustc_exam_options", "按学期和其他筛选条件列出考试类型、学历、院系、年级、楼栋、日期及时段选项及数量。", {
+    ...commonSchema(),
+    semester: z.union([z.string(), z.number().int()]).optional().describe("学期 ID、学期代码或中文名称；省略时使用默认学期。"),
+    type: z.string().optional(),
+    education: z.string().optional(),
+    department: z.string().optional().describe("院系代码或名称。"),
+    grade: z.string().optional(),
+    building: z.string().optional().describe("网页楼栋代码；0 或其他表示未识别楼栋。"),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    course: z.string().optional(),
+    teacher: z.string().optional(),
+    location: z.string().optional(),
+    className: z.string().optional(),
+    span: z.enum(["morning", "afternoon", "evening"]).optional(),
+  }, (args) => {
+    const command = commandArgs(["exam", "options"], args);
+    appendOption(command, "--semester", stringValue(args, "semester"));
+    appendOption(command, "--type", stringValue(args, "type"));
+    appendOption(command, "--education", stringValue(args, "education"));
+    appendOption(command, "--department", stringValue(args, "department"));
+    appendOption(command, "--grade", stringValue(args, "grade"));
+    appendOption(command, "--building", stringValue(args, "building"));
+    appendOption(command, "--date", stringValue(args, "date"));
+    appendOption(command, "--course", stringValue(args, "course"));
+    appendOption(command, "--teacher", stringValue(args, "teacher"));
+    appendOption(command, "--location", stringValue(args, "location"));
+    appendOption(command, "--class", stringValue(args, "className"));
+    appendOption(command, "--span", stringValue(args, "span"));
+    return command;
+  });
+
+  register(server, executor, "ustc_exam_schedule", "按某日或该周（星期一至星期日）查看考试日程。", {
+    ...commonSchema(),
+    semester: z.union([z.string(), z.number().int()]).optional().describe("学期 ID、学期代码或中文名称；省略时使用默认学期。"),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("查看单日考试；与 weekOf 二选一。"),
+    weekOf: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("查看该日期所在的星期一至星期日。"),
+    type: z.string().optional(),
+    education: z.string().optional(),
+    department: z.string().optional().describe("院系代码或名称。"),
+    grade: z.string().optional(),
+    building: z.string().optional(),
+    course: z.string().optional(),
+    teacher: z.string().optional(),
+    location: z.string().optional(),
+    className: z.string().optional(),
+    span: z.enum(["morning", "afternoon", "evening"]).optional(),
+  }, (args) => {
+    const command = commandArgs(["exam", "schedule"], args);
+    appendOption(command, "--semester", stringValue(args, "semester"));
+    appendOption(command, "--date", stringValue(args, "date"));
+    appendOption(command, "--week-of", stringValue(args, "weekOf"));
+    appendOption(command, "--type", stringValue(args, "type"));
+    appendOption(command, "--education", stringValue(args, "education"));
+    appendOption(command, "--department", stringValue(args, "department"));
+    appendOption(command, "--grade", stringValue(args, "grade"));
+    appendOption(command, "--building", stringValue(args, "building"));
+    appendOption(command, "--course", stringValue(args, "course"));
+    appendOption(command, "--teacher", stringValue(args, "teacher"));
+    appendOption(command, "--location", stringValue(args, "location"));
+    appendOption(command, "--class", stringValue(args, "className"));
+    appendOption(command, "--span", stringValue(args, "span"));
+    return command;
+  });
+
+  register(server, executor, "ustc_exam_conflicts", "检查同一日期和考场的公开考试时间重叠；不推断考生个人冲突。", {
+    ...commonSchema(),
+    semester: z.union([z.string(), z.number().int()]).optional().describe("学期 ID、学期代码或中文名称；省略时使用默认学期。"),
+    type: z.string().optional(),
+    education: z.string().optional(),
+    department: z.string().optional().describe("院系代码或名称。"),
+    grade: z.string().optional(),
+    building: z.string().optional(),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    course: z.string().optional(),
+    teacher: z.string().optional(),
+    location: z.string().optional(),
+    className: z.string().optional(),
+    span: z.enum(["morning", "afternoon", "evening"]).optional(),
+  }, (args) => {
+    const command = commandArgs(["exam", "conflicts"], args);
+    appendOption(command, "--semester", stringValue(args, "semester"));
+    appendOption(command, "--type", stringValue(args, "type"));
+    appendOption(command, "--education", stringValue(args, "education"));
+    appendOption(command, "--department", stringValue(args, "department"));
+    appendOption(command, "--grade", stringValue(args, "grade"));
+    appendOption(command, "--building", stringValue(args, "building"));
+    appendOption(command, "--date", stringValue(args, "date"));
+    appendOption(command, "--course", stringValue(args, "course"));
+    appendOption(command, "--teacher", stringValue(args, "teacher"));
+    appendOption(command, "--location", stringValue(args, "location"));
+    appendOption(command, "--class", stringValue(args, "className"));
+    appendOption(command, "--span", stringValue(args, "span"));
+    return command;
+  });
+
   register(server, executor, "ustc_exam_show", "查看指定学期的单个考试详情。", {
     ...commonSchema(),
     id: z.number().int().describe("考试 ID。"),
@@ -479,16 +605,31 @@ export const registerCatalogTools = (server: McpServer, executor: CliExecutor): 
     mode: z.enum(["interchangeable", "straight"]).optional().describe("同级可互换或单向高级替代。"),
     multiple: z.boolean().optional().describe("只显示多门关系。"),
     single: z.boolean().optional().describe("只显示单门关系。"),
+    side: z.enum(["替代方", "被替代方"]).optional().describe("限定课程所在一侧；需同时提供 course。"),
   }, (args) => {
     if (booleanValue(args, "multiple") && booleanValue(args, "single")) {
       throw new McpInputError("multiple 和 single 不能同时使用。");
+    }
+    if (args.side !== undefined && !stringValue(args, "course")?.trim()) {
+      throw new McpInputError("按替代方或被替代方筛选时必须同时提供 course。");
     }
     const command = commandArgs(["substitute", "list"], args);
     appendOption(command, "--course", stringValue(args, "course"));
     appendOption(command, "--mode", stringValue(args, "mode"));
     appendOption(command, "--multiple", args.multiple);
     appendOption(command, "--single", args.single);
+    appendOption(command, "--side", stringValue(args, "side"));
     return command;
+  });
+
+  register(server, executor, "ustc_substitute_explain", "查看课程参与的直接替代关系；只检索直接关系，不推断传递替代链。", {
+    ...commonSchema(),
+    course: z.string().min(1).describe("课程编号或名称。"),
+    side: z.enum(["替代方", "被替代方"]).optional().describe("限定课程所在一侧。"),
+  }, (args) => {
+    const command = commandArgs(["substitute", "explain"], args);
+    appendOption(command, "--side", stringValue(args, "side"));
+    return positionals(command, [stringValue(args, "course") ?? ""]);
   });
 
   register(server, executor, "ustc_substitute_summary", "查看网页提供的交流学校课程替代关系汇总表链接。", {

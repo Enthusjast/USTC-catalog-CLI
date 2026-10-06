@@ -86,6 +86,72 @@ const timetablePayload = z.object({
 const courseGroupValue = z.union([recordsPayload, z.record(recordsPayload)]);
 const courseCollectionPayload = z.union([recordsPayload, z.record(courseGroupValue)]);
 
+const programPlanItem = z.object({
+  id: scalarId,
+  grade: scalarId.optional(),
+  nameZh: z.string().optional(),
+  name: z.string().optional(),
+  trainType: z.string().optional(),
+}).passthrough();
+const programMajor = z.object({
+  id: scalarId.optional(),
+  code: z.string().optional(),
+  nameZh: z.string().optional(),
+  programs: z.array(programPlanItem).optional(),
+}).passthrough();
+const programDepartment = z.object({
+  id: scalarId.optional(),
+  code: z.string().optional(),
+  nameZh: z.string().optional(),
+  majors: z.record(programMajor).optional(),
+}).passthrough();
+const programTreePayload = z.record(programDepartment);
+
+const programCourse = recordPayload.superRefine((value, context) => {
+  const course = value.course && typeof value.course === "object" && !Array.isArray(value.course)
+    ? value.course as Record<string, unknown>
+    : undefined;
+  if (!course || typeof course.code !== "string" || typeof (course.nameZh ?? course.name) !== "string") {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "培养方案课程缺少课程编号或名称" });
+  }
+});
+
+const programModuleSelf = z.object({
+  id: scalarId,
+  type: z.string(),
+  parent: scalarId.nullable().optional(),
+  typeEn: z.string().nullable().optional(),
+  major: z.string().nullable().optional(),
+  majorDirection: z.string().nullable().optional(),
+  remark: z.string().nullable().optional(),
+  requiredSubModuleNum: z.number().nullable().optional(),
+  requiredCredits: z.number().nullable().optional(),
+  requiredCourseNum: z.number().nullable().optional(),
+  creditsUpperLimit: z.number().nullable().optional(),
+  courseNumUpperLimit: z.number().nullable().optional(),
+  courses: z.array(programCourse).optional(),
+  public: scalarId.nullable().optional(),
+}).passthrough();
+
+const programModuleNode: z.ZodTypeAny = z.lazy(() => z.object({
+  self: programModuleSelf,
+  isLeaf: z.boolean(),
+  children: z.array(programModuleNode).optional(),
+}).passthrough());
+
+const programInfoPayload = z.object({
+  trainType: z.string().optional(),
+  grade: scalarId.optional(),
+  department: recordPayload.optional(),
+  major: recordPayload.optional(),
+  majorDirection: z.union([z.string(), recordPayload]).nullable().optional(),
+  requiredCredits: z.number().nullable().optional(),
+  beginSemester: z.string().nullable().optional(),
+  moduleTree: z.array(programModuleNode),
+}).passthrough();
+
+const programModulePayload = programModuleNode;
+
 const schemaFor = (path: string): z.ZodTypeAny => {
   const endpoint = path.split("?", 1)[0];
   if (endpoint === "/api/restricted") return z.object({ restricted: z.boolean() }).passthrough();
@@ -93,6 +159,9 @@ const schemaFor = (path: string): z.ZodTypeAny => {
   if (endpoint === "/api/teach/course/search") return courseSearchPayload;
   if (endpoint === "/api/teach/semester/list") return semesterPayload;
   if (endpoint === "/api/teach/department/college-tree") return departmentPayload;
+  if (endpoint === "/api/teach/program/tree") return programTreePayload;
+  if (endpoint.startsWith("/api/teach/program/info/")) return programInfoPayload;
+  if (endpoint.startsWith("/api/teach/course-module/info/")) return programModulePayload;
   if (endpoint === "/api/teach/course/infos") return z.array(courseInfoItem);
   if (endpoint.startsWith("/api/teach/lesson/list-for-teach/") || endpoint === "/api/teach/lesson/infos") return lessonPayload;
   if (endpoint.startsWith("/api/teach/exam/list/") || endpoint.startsWith("/api/teach/general-exam/list/")) return examPayload;

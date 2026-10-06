@@ -223,4 +223,8 @@ export class CatalogApiClient {
   programDocument(code: string) {
     return this.getText(`/data/program/cn/${encodeURIComponent(code)}.html`);
   }
+
+  programHistory() {
+    return this.getText("https://www.teach.ustc.edu.cn/education/241.html");
+  }
 }

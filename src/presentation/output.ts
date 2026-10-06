@@ -99,6 +99,15 @@ export const emitResult = <T>(
   if ((envelope.meta.unlocatedUsageCount ?? 0) > 0 && !options.quiet) {
     process.stderr.write(`提示：公开课表中有 ${envelope.meta.unlocatedUsageCount} 条使用记录无法关联到网页教室目录，未计入房间结果。\n`);
   }
+  if (envelope.meta.notice && !options.quiet && options.format !== "json") {
+    process.stderr.write(`提示：${envelope.meta.notice}\n`);
+  }
+  if ((envelope.meta.uncheckableExamCount ?? 0) > 0 && !options.quiet && options.format !== "json") {
+    process.stderr.write(`提示：${envelope.meta.uncheckableExamCount} 条考试记录缺少可判定的日期、时间或考场，未纳入冲突检查。\n`);
+  }
+  if ((envelope.meta.unmappedDepartmentCount ?? 0) > 0 && !options.quiet && options.format !== "json") {
+    process.stderr.write(`提示：${envelope.meta.unmappedDepartmentCount} 条通用考试院系名称未能映射为代码；按院系代码筛选时可能不会包含这些记录。\n`);
+  }
 
   if (options.format === "json") {
     const jsonData = isArray ? selected : selected[0];

@@ -2,6 +2,7 @@
 
 import type {
   ClassroomUsage,
+  ExamConflict,
   Course,
   CourseDetail,
   CourseRef,
@@ -18,6 +19,7 @@ import type {
   ProgramModule,
   ProgramSummary,
   Semester,
+  SubstituteCourseSide,
   SubstituteRelation,
   Textbook,
   TimetableData,
@@ -279,6 +281,7 @@ export const normalizeProgramTree = (input: unknown): ProgramSummary[] => {
 const normalizeProgramCourse = (value: unknown): ProgramCourse => {
   const raw = record(value);
   const course = record(raw.course);
+  const department = record(raw.department);
   return {
     code: stringValue(course.code ?? raw.code),
     name: stringValue(course.nameZh ?? course.name ?? raw.name),
@@ -286,6 +289,10 @@ const normalizeProgramCourse = (value: unknown): ProgramCourse => {
     hours: numberValue(raw.totalPeriods ?? course.totalPeriods),
     credits: numberValue(raw.credits ?? course.credits),
     terms: arrayValue(raw.terms).map(String),
+    remark: raw.remark ?? null,
+    departmentCode: department.code == null ? null : stringValue(department.code),
+    departmentName: department.nameZh == null ? null : stringValue(department.nameZh),
+    examMode: raw.examMode == null ? null : stringValue(raw.examMode),
   };
 };
 
@@ -300,8 +307,11 @@ export const normalizeProgramModule = (input: unknown): ProgramModule => {
     major: self.major ?? undefined,
     majorDirection: self.majorDirection ?? undefined,
     remark: self.remark ?? null,
+    requiredSubModuleNum: numberValue(self.requiredSubModuleNum),
     requiredCredits: numberValue(self.requiredCredits),
     requiredCourseNum: numberValue(self.requiredCourseNum),
+    creditsUpperLimit: numberValue(self.creditsUpperLimit),
+    courseNumUpperLimit: numberValue(self.courseNumUpperLimit),
     isLeaf: raw.isLeaf === true,
     publicModuleId: numberValue(self.public),
     courses: arrayValue(self.courses).map(normalizeProgramCourse),
@@ -314,11 +324,21 @@ export const normalizeProgramDetail = (
   summary: ProgramSummary,
 ): ProgramDetail => {
   const raw = record(input);
+  const namedValue = (value: unknown): string | null | undefined => {
+    if (value === undefined) return undefined;
+    if (value === null) return null;
+    const named = record(value);
+    return stringValue(named.nameZh ?? named.name ?? value);
+  };
   return {
     ...summary,
-    beginSemester: raw.beginSemester ?? undefined,
+    beginSemester: stringValue(raw.beginSemester) || undefined,
     requiredCredits: numberValue(raw.requiredCredits),
     awardDegree: raw.awardDegree,
+    education: namedValue(raw.education),
+    studentType: namedValue(raw.studentType),
+    majorDirection: namedValue(raw.majorDirection),
+    directionGen: typeof raw.directionGen === "boolean" ? raw.directionGen : undefined,
     modules: arrayValue(raw.moduleTree).map(normalizeProgramModule),
   };
 };
@@ -564,13 +584,22 @@ const examTypeName = (value: unknown): string => {
   return stringValue(value, "考试");
 };
 
+export const examBuildingBucket = (room: string): string => {
+  const first = room.trim().charAt(0);
+  return /^[1-9]$/.test(first) ? first : "0";
+};
+
 const normalizeRooms = (value: unknown): ExamRoom[] =>
   arrayValue(value).map((item) => {
     const raw = record(item);
     return { room: stringValue(raw.room), count: numberValue(raw.count) };
   });
 
-export const normalizeExams = (planned: unknown[], general: unknown[]): Exam[] => {
+export const normalizeExams = (
+  planned: unknown[],
+  general: unknown[],
+  departmentCodesByName: ReadonlyMap<string, string> = new Map(),
+): Exam[] => {
   const plannedItems = planned.map((input): Exam => {
     const raw = record(input);
     const lesson = record(raw.lesson);
@@ -578,7 +607,9 @@ export const normalizeExams = (planned: unknown[], general: unknown[]): Exam[] =
     const department = record(lesson.openDepartment);
     return {
       id: numberValue(raw.id) ?? 0,
+      recordKind: "planned",
       type: examTypeName(raw.examType),
+      batch: stringValue(record(raw.examBatch).name, "") || undefined,
       courseCode: stringValue(lesson.code),
       courseName: stringValue(course.cn ?? course.nameZh),
       departmentCode: department.code,
@@ -600,6 +631,7 @@ export const normalizeExams = (planned: unknown[], general: unknown[]): Exam[] =
         .map((item) => item.trim())
         .filter(Boolean),
       education: record(lesson.education).cn ?? lesson.education,
+      courseGradation: localized(lesson.courseGradation),
       courseCredits: numberValue(course.credits),
       courseType: record(lesson.courseType).cn ?? lesson.courseType,
       examMode: raw.examMode,
@@ -608,12 +640,17 @@ export const normalizeExams = (planned: unknown[], general: unknown[]): Exam[] =
   const generalItems = general.map((input): Exam => {
     const raw = record(input);
     const education = record(raw.education);
+    const batch = stringValue(raw.batch, "") || undefined;
+    const departmentName = stringValue(raw.dept, "").trim() || undefined;
     return {
       id: numberValue(raw.id) ?? 0,
-      type: "通用考试",
+      recordKind: "general",
+      type: batch?.includes("补考") ? "补考" : "通用考试",
+      batch,
       courseCode: stringValue(raw.courseCode),
       courseName: stringValue(raw.courseName),
-      departmentName: stringValue(raw.dept),
+      departmentCode: departmentName ? departmentCodesByName.get(departmentName) : undefined,
+      departmentName,
       date: stringValue(raw.examDate).slice(0, 10),
       startTime: formatTime(raw.startTime),
       endTime: formatTime(raw.endTime),
@@ -625,6 +662,7 @@ export const normalizeExams = (planned: unknown[], general: unknown[]): Exam[] =
       classes: [],
       grades: [],
       education: education.cn ?? raw.education,
+      courseGradation: localized(raw.courseGradation),
       courseType: "",
       examMode: "",
     };
@@ -641,6 +679,8 @@ export type ExamFilters = {
   grade?: string;
   building?: string;
   date?: string;
+  dateFrom?: string;
+  dateTo?: string;
   course?: string;
   teacher?: string;
   location?: string;
@@ -651,13 +691,30 @@ export type ExamFilters = {
 export const filterExams = (exams: Exam[], filters: ExamFilters): Exam[] => {
   let result = exams;
   if (filters.type) result = result.filter((item) => item.type === filters.type);
-  if (filters.education) result = result.filter((item) => item.education === filters.education);
-  if (filters.department) result = result.filter((item) => item.departmentCode === filters.department);
+  if (filters.education === "本研贯通") {
+    result = result.filter((item) => item.courseGradation === "本研贯通");
+  } else if (filters.education === "研究生") {
+    result = result.filter((item) => item.education === "研究生" && item.courseGradation !== "本研贯通");
+  } else if (filters.education) {
+    result = result.filter((item) => item.education === filters.education);
+  }
+  if (filters.department) {
+    result = result.filter((item) =>
+      item.departmentCode === filters.department || item.departmentName === filters.department,
+    );
+  }
   if (filters.grade) result = result.filter((item) => item.grades.includes(filters.grade!));
   if (filters.building) {
-    result = result.filter((item) => item.rooms.some((room) => room.room.startsWith(filters.building!)));
+    const building = filters.building === "其他" ? "0" : filters.building;
+    result = result.filter((item) => item.rooms.some((room) =>
+      building === "0"
+        ? examBuildingBucket(room.room) === "0"
+        : room.room.startsWith(building!),
+    ));
   }
   if (filters.date) result = result.filter((item) => item.date === filters.date);
+  if (filters.dateFrom) result = result.filter((item) => item.date >= filters.dateFrom!);
+  if (filters.dateTo) result = result.filter((item) => item.date <= filters.dateTo!);
   const courseTerms = tokens(filters.course);
   if (courseTerms.length) {
     result = result.filter((item) =>
@@ -679,14 +736,88 @@ export const filterExams = (exams: Exam[], filters: ExamFilters): Exam[] => {
     result = result.filter((item) => includesAll(item.classes.join(" ").toLowerCase(), classTerms));
   }
   if (filters.span) {
-    result = result.filter((item) => {
-      const hour = Number((item.startTime ?? "00:00").slice(0, 2));
-      if (filters.span === "morning") return hour < 12;
-      if (filters.span === "afternoon") return hour >= 12 && hour < 18;
-      return hour >= 18;
-    });
+    result = result.filter((item) => examRangeFor(item) === filters.span);
   }
   return result;
+};
+
+const examRangeFor = (exam: Exam): ExamRange | undefined => {
+  if (!exam.startTime) return undefined;
+  const start = timeToMinutes(exam.startTime);
+  if (start === undefined) return undefined;
+  if (start < 12 * 60) return "morning";
+  if (start < 18 * 60) return "afternoon";
+  return "evening";
+};
+
+const examBuildingLabel = (value: string): string => ({
+  "0": "其他",
+  "1": "第一教学楼",
+  "2": "第二教学楼",
+  "3": "第三教学楼",
+  "4": "第四教学楼",
+  "5": "第五教学楼",
+}[value] ?? `楼栋 ${value}`);
+
+export const examFilterOptions = (exams: Exam[], filters: ExamFilters = {}) => {
+  const dimensions: Array<{
+    dimension: import("../domain/models.js").ExamFilterDimension;
+    values: (exam: Exam) => Array<{ value: string; label: string }>;
+  }> = [
+    { dimension: "type", values: (exam) => [{ value: exam.type, label: exam.type }] },
+    {
+      dimension: "education",
+      values: (exam) => {
+        if (exam.courseGradation === "本研贯通") return [{ value: "本研贯通", label: "本研贯通" }];
+        return exam.education ? [{ value: exam.education, label: exam.education }] : [];
+      },
+    },
+    {
+      dimension: "department",
+      values: (exam) => {
+        const value = exam.departmentCode ?? exam.departmentName;
+        if (!value) return [];
+        return [{ value, label: exam.departmentCode && exam.departmentName
+          ? `${exam.departmentCode} ${exam.departmentName}`
+          : exam.departmentName ?? value }];
+      },
+    },
+    { dimension: "grade", values: (exam) => [...new Set(exam.grades)].map((value) => ({ value, label: value })) },
+    {
+      dimension: "building",
+      values: (exam) => [...new Set(exam.rooms.map((room) => examBuildingBucket(room.room)))]
+        .map((value) => ({ value, label: examBuildingLabel(value) })),
+    },
+    { dimension: "date", values: (exam) => exam.date ? [{ value: exam.date, label: exam.date }] : [] },
+    {
+      dimension: "span",
+      values: (exam) => {
+        const value = examRangeFor(exam);
+        const labels: Record<ExamRange, string> = { morning: "上午", afternoon: "下午", evening: "晚上" };
+        return value ? [{ value, label: labels[value] }] : [];
+      },
+    },
+  ];
+  const output: import("../domain/models.js").ExamFilterOption[] = [];
+  for (const { dimension, values } of dimensions) {
+    const scopedFilters = { ...filters };
+    delete scopedFilters[dimension];
+    const scoped = filterExams(exams, scopedFilters);
+    const counts = new Map<string, { label: string; count: number }>();
+    for (const exam of scoped) {
+      for (const item of values(exam)) {
+        const current = counts.get(item.value);
+        counts.set(item.value, { label: item.label, count: (current?.count ?? 0) + 1 });
+      }
+    }
+    const valuesSorted = [...counts.entries()].sort(([a], [b]) => {
+      if (dimension === "date") return a.localeCompare(b);
+      if (dimension === "span") return ["morning", "afternoon", "evening"].indexOf(a) - ["morning", "afternoon", "evening"].indexOf(b);
+      return a.localeCompare(b, "zh-CN", { numeric: true });
+    });
+    for (const [value, item] of valuesSorted) output.push({ dimension, value, ...item });
+  }
+  return output;
 };
 
 export type ExamSortKey = "course" | "department" | "teacher" | "location" | "date" | "time" | "class";
@@ -709,6 +840,63 @@ export const sortExams = (
     return compareNullable(value(left), value(right)) || compareNullable(left.id, right.id);
   });
   return descending ? result.reverse() : result;
+};
+
+export type ExamConflictReport = { conflicts: ExamConflict[]; uncheckableCount: number };
+
+const minutesToClock = (minutes: number): string =>
+  `${Math.floor(minutes / 60).toString().padStart(2, "0")}:${(minutes % 60).toString().padStart(2, "0")}`;
+
+export const findExamConflicts = (exams: Exam[]): ExamConflictReport => {
+  const byRoom = new Map<string, Array<{ exam: Exam; start: number; end: number }>>();
+  let uncheckableCount = 0;
+  for (const exam of exams) {
+    const start = exam.startTime ? timeToMinutes(exam.startTime) : undefined;
+    const end = exam.endTime ? timeToMinutes(exam.endTime) : undefined;
+    const rooms = [...new Set(exam.rooms.map((room) => room.room.trim()).filter(Boolean))];
+    if (!validIsoDate(exam.date) || start === undefined || end === undefined || end <= start || rooms.length === 0) {
+      uncheckableCount += 1;
+      continue;
+    }
+    for (const room of rooms) {
+      byRoom.set(`${exam.date}\u0000${room}`, [...(byRoom.get(`${exam.date}\u0000${room}`) ?? []), { exam, start, end }]);
+    }
+  }
+
+  const conflicts: ExamConflict[] = [];
+  for (const [key, entries] of byRoom) {
+    const [date, room] = key.split("\u0000");
+    const sorted = [...entries].sort((a, b) => a.start - b.start || a.end - b.end || a.exam.id - b.exam.id);
+    for (let leftIndex = 0; leftIndex < sorted.length; leftIndex += 1) {
+      const left = sorted[leftIndex]!;
+      for (let rightIndex = leftIndex + 1; rightIndex < sorted.length; rightIndex += 1) {
+        const right = sorted[rightIndex]!;
+        if (right.start >= left.end) break;
+        if (left.exam.recordKind === right.exam.recordKind && left.exam.id === right.exam.id) continue;
+        const start = Math.max(left.start, right.start);
+        const end = Math.min(left.end, right.end);
+        conflicts.push({
+          date,
+          room,
+          overlapStart: minutesToClock(start),
+          overlapEnd: minutesToClock(end),
+          first: left.exam,
+          second: right.exam,
+        });
+      }
+    }
+  }
+  conflicts.sort((a, b) =>
+    a.date.localeCompare(b.date) || a.overlapStart.localeCompare(b.overlapStart) || a.room.localeCompare(b.room, "zh-CN", { numeric: true }),
+  );
+  return { conflicts, uncheckableCount };
+};
+
+const validIsoDate = (value: string): boolean => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 };
 
 const courseRef = (value: unknown): CourseRef => {
@@ -739,7 +927,9 @@ export const normalizeSubstitutes = (input: unknown[]): SubstituteRelation[] => 
         .join(" ")
         .toLowerCase(),
     } satisfies SubstituteRelation;
-  });
+  }).sort((a, b) =>
+    (a.substituteCourses[0]?.code ?? "").localeCompare(b.substituteCourses[0]?.code ?? ""),
+  );
   const result: SubstituteRelation[] = [];
   for (const relation of normalized) {
     const reverse = result.find(
@@ -762,10 +952,19 @@ export const filterSubstitutes = (
   course?: string,
   mode?: "interchangeable" | "straight",
   multiple?: boolean,
+  side?: SubstituteCourseSide,
 ): SubstituteRelation[] => {
   let result = relations;
   const terms = tokens(course);
-  if (terms.length) result = result.filter((item) => includesAll(item.searchText, terms));
+  if (terms.length) {
+    result = result.filter((item) => {
+      const courses = side === "substitute" ? item.substituteCourses : side === "original" ? item.originalCourses : [];
+      const searchableText = side
+        ? courses.map((value) => `${value.code} ${value.nameZh} ${value.nameEn ?? ""}`).join(" ").toLowerCase()
+        : item.searchText;
+      return includesAll(searchableText, terms);
+    });
+  }
   if (mode === "interchangeable") result = result.filter((item) => item.interchangeable);
   if (mode === "straight") result = result.filter((item) => !item.interchangeable);
   if (multiple !== undefined) result = result.filter((item) => item.multiple === multiple);

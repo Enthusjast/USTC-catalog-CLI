@@ -27,15 +27,25 @@ describe("query presets", () => {
     expect(scheduled.args).toContain("--class-type");
     const options = await store.save("筛选选项", ["lesson", "options", "--semester", "461"]);
     expect(options.args).toEqual(["lesson", "options", "--semester", "461"]);
-    expect((await store.list()).map((preset) => preset.name)).toEqual(expect.arrayContaining(["数学课", "时间筛选", "筛选选项"]));
+    await store.save("方案比较", ["program", "compare", "3430", "3431"]);
+    await store.save("历史方案", ["program", "history", "list", "--keyword", "2024"]);
+    await store.save("展开公共模块", ["program", "show", "3430", "--expand-public"]);
+    expect((await store.list()).map((preset) => preset.name)).toEqual(expect.arrayContaining([
+      "数学课", "时间筛选", "筛选选项", "方案比较", "历史方案", "展开公共模块",
+    ]));
     await expect(store.save("数学课", ["semester", "list"])).rejects.toMatchObject({ code: "ARGUMENT_ERROR" });
     await expect(store.save("坏预设", ["cache", "clear"])).rejects.toMatchObject({ code: "ARGUMENT_ERROR" });
     await expect(store.save("改路预设", ["course", "search", "数学", "--cache-dir", "/tmp/other"]))
+      .rejects.toMatchObject({ code: "ARGUMENT_ERROR" });
+    await expect(store.save("历史下载", ["program", "history", "download", "entry", "--output", "plan.pdf"]))
       .rejects.toMatchObject({ code: "ARGUMENT_ERROR" });
     await store.save("数学课", ["semester", "list"], true);
     expect((await store.get("数学课")).args).toEqual(["semester", "list"]);
     await store.delete("时间筛选");
     await store.delete("筛选选项");
+    await store.delete("方案比较");
+    await store.delete("历史方案");
+    await store.delete("展开公共模块");
     expect(await store.delete("数学课")).toBe(true);
     expect(await store.list()).toEqual([]);
   });

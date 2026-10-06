@@ -3,14 +3,20 @@ import type {
   Course,
   CourseDetail,
   Exam,
+  ExamConflict,
+  ExamFilterOption,
+  ExamScheduleDay,
   Lesson,
   LessonDetail,
+  ProgramComparison,
   ProgramCatalogEntry,
   ProgramDocument,
+  ProgramHistoryEntry,
   ProgramSummary,
   SubstituteRelation,
 } from "../domain/models.js";
 import type { DisplayRow } from "./output.js";
+import { expandProgramDocumentTable } from "../adapters/program-document.js";
 
 const classroomUsageTypeLabel = (usage: ClassroomUsage): string => usage.rawType ?? ({
   lesson: "课程",
@@ -55,6 +61,58 @@ export const programRows = (items: ProgramSummary[]): DisplayRow[] =>
     培养类型: item.trainType,
   }));
 
+export const programHistoryRows = (items: ProgramHistoryEntry[]): DisplayRow[] =>
+  items.map((item) => ({
+    条目ID: item.id,
+    版本: item.version ?? "",
+    分类: item.section,
+    名称: item.title,
+    类型: item.downloadable ? "PDF/附件" : "网页",
+    下载可用: item.downloadable ? "是" : "否",
+    链接: item.href,
+  }));
+
+export const programComparisonRows = (comparison: ProgramComparison): DisplayRow[] => [
+  {
+    类型: "方案摘要",
+    变化: `${comparison.before.grade} ${comparison.before.name} → ${comparison.after.grade} ${comparison.after.name}`,
+    旧总学分: comparison.before.requiredCredits ?? "",
+    新总学分: comparison.after.requiredCredits ?? "",
+    新增课程: comparison.summary.addedCourses,
+    删除课程: comparison.summary.removedCourses,
+    模块迁移: comparison.summary.movedCourses,
+    课程变化: comparison.summary.changedCourses,
+    模块要求变化: comparison.summary.changedModules,
+  },
+  ...comparison.modules.map((item) => ({
+    类型: "模块",
+    变化: item.change === "added" ? "新增" : item.change === "removed" ? "删除" : "要求变化",
+    模块路径: item.path,
+    变化字段: item.changedFields.join("、"),
+    旧要求学分: item.before?.requiredCredits ?? "",
+    新要求学分: item.after?.requiredCredits ?? "",
+    旧要求门数: item.before?.requiredCourseNum ?? "",
+    新要求门数: item.after?.requiredCourseNum ?? "",
+  })),
+  ...comparison.courses.map((item) => ({
+    类型: "课程",
+    变化: item.change === "added" ? "新增" : item.change === "removed" ? "删除" : item.change === "moved" ? "模块迁移" : "课程信息变化",
+    课程编号: item.code,
+    课程名: item.name,
+    原模块: item.before?.modulePath ?? "",
+    新模块: item.after?.modulePath ?? "",
+    变化字段: item.changedFields.join("、"),
+    旧必修: item.before ? (item.before.compulsory ? "是" : "否") : "",
+    新必修: item.after ? (item.after.compulsory ? "是" : "否") : "",
+    旧学分: item.before?.credits ?? "",
+    新学分: item.after?.credits ?? "",
+    旧学时: item.before?.hours ?? "",
+    新学时: item.after?.hours ?? "",
+    旧学期: item.before?.terms.join("、") ?? "",
+    新学期: item.after?.terms.join("、") ?? "",
+  })),
+];
+
 export const programCatalogRows = (items: ProgramCatalogEntry[]): DisplayRow[] =>
   items.map((item) => ({
     编号: item.id,
@@ -63,23 +121,57 @@ export const programCatalogRows = (items: ProgramCatalogEntry[]): DisplayRow[] =
     上级: item.parent.join("、"),
   }));
 
-export const programDocumentRows = (document: ProgramDocument): DisplayRow[] =>
-  document.sections.flatMap((section) => section.blocks.map((block) => ({
-    章节: section.id,
-    标题: section.title,
-    层级: section.level,
-    类型: block.type === "paragraph" ? "正文" : block.type === "table" ? "表格" : block.type === "image" ? "图片" : "课程",
-    内容: block.type === "paragraph"
-      ? block.text
-      : block.type === "course"
-        ? `${block.code} ${block.text}`
-        : block.type === "image"
-          ? block.alt ?? block.src
-          : [...(block.table.footnotes ?? []), ...block.table.rows.map((row) => row.join(" | "))].join("；"),
-    ...(block.type === "paragraph" && block.links?.length
-      ? { 链接: block.links.map((link) => `${link.text} → ${link.href}`).join("；") }
-      : {}),
-  })));
+export const programDocumentRows = (document: ProgramDocument): DisplayRow[] => {
+  const rows: DisplayRow[] = [];
+  let tableIndex = 0;
+  for (const section of document.sections) {
+    for (const block of section.blocks) {
+      if (block.type === "table") {
+        tableIndex += 1;
+        const expanded = expandProgramDocumentTable(block.table);
+        const width = Math.max(0, ...expanded.headerRows.map((row) => row.length), ...expanded.rows.map((row) => row.length));
+        const common = {
+          章节: section.id,
+          标题: section.title,
+          层级: section.level,
+          类型: "表格",
+          表格序号: tableIndex,
+          表题: block.table.caption ?? `表格 ${tableIndex}`,
+        };
+        const appendMatrixRows = (matrix: string[][], kind: string, start: number): void => {
+          matrix.forEach((cells, index) => {
+            rows.push({
+              ...common,
+              行类型: kind,
+              行号: start + index + 1,
+              ...Object.fromEntries(Array.from({ length: width }, (_, cell) => [`列${cell + 1}`, cells[cell] ?? ""])),
+            });
+          });
+        };
+        appendMatrixRows(expanded.headerRows, "表头", 0);
+        appendMatrixRows(expanded.rows, "数据", expanded.headerRows.length);
+        appendMatrixRows(expanded.footnoteRows, "脚注", expanded.headerRows.length + expanded.rows.length);
+        continue;
+      }
+
+      rows.push({
+        章节: section.id,
+        标题: section.title,
+        层级: section.level,
+        类型: block.type === "paragraph" ? "正文" : block.type === "image" ? "图片" : "课程",
+        内容: block.type === "paragraph"
+          ? block.text
+          : block.type === "course"
+            ? `${block.code} ${block.text}`
+            : block.alt ?? block.src,
+        ...(block.type === "paragraph" && block.links?.length
+          ? { 链接: block.links.map((link) => `${link.text} → ${link.href}`).join("；") }
+          : {}),
+      });
+    }
+  }
+  return rows;
+};
 
 export const lessonRows = (items: Lesson[]): DisplayRow[] =>
   items.map((item) => ({
@@ -202,6 +294,8 @@ export const examRows = (items: Exam[]): DisplayRow[] =>
     开课单位: `${item.departmentCode ?? ""} ${item.departmentName ?? ""}`.trim(),
     授课教师: item.teachers.join("、"),
     考试类型: item.type,
+    学分: item.courseCredits ?? "",
+    课程类型: item.courseType ?? "",
     日期: item.date,
     时间: `${item.startTime ?? ""}-${item.endTime ?? ""}`,
     地点: item.rooms.map((room) => `${room.room}${room.count == null ? "" : `(${room.count})`}`).join("、"),
@@ -212,10 +306,61 @@ export const examRows = (items: Exam[]): DisplayRow[] =>
     考核方式: item.examMode ?? "",
   }));
 
+export const examOptionRows = (items: ExamFilterOption[]): DisplayRow[] => {
+  const labels: Record<ExamFilterOption["dimension"], string> = {
+    type: "考试类型",
+    education: "学历层次",
+    department: "开课单位",
+    grade: "年级",
+    building: "教学楼",
+    date: "日期",
+    span: "时间段",
+  };
+  return items.map((item) => ({
+    筛选项: labels[item.dimension],
+    值: item.value,
+    名称: item.label,
+    考试数: item.count,
+  }));
+};
+
+export const examScheduleRows = (days: ExamScheduleDay[]): DisplayRow[] =>
+  days.map((day) => ({
+    日期: day.date,
+    考试场数: day.exams.length,
+    考试安排: day.exams.map((exam) => {
+      const time = exam.startTime && exam.endTime ? `${exam.startTime}-${exam.endTime}` : "时间待定";
+      const locations = exam.rooms.map((room) => room.room).filter(Boolean).join("、") || "考场待定";
+      return `${time} ${exam.courseCode} ${exam.courseName} @ ${locations}`;
+    }).join("；") || "无考试",
+  }));
+
+export const examConflictRows = (items: ExamConflict[]): DisplayRow[] =>
+  items.map((item) => ({
+    日期: item.date,
+    考场: item.room,
+    冲突时段: `${item.overlapStart}-${item.overlapEnd}`,
+    考试一: `${item.first.courseCode} ${item.first.courseName}（${item.first.type}）`,
+    考试二: `${item.second.courseCode} ${item.second.courseName}（${item.second.type}）`,
+  }));
+
 export const substituteRows = (items: SubstituteRelation[]): DisplayRow[] =>
   items.map((item) => ({
-    替代课程: item.substituteCourses.map((course) => `${course.code} ${course.nameZh}`).join("；"),
-    原课程: item.originalCourses.map((course) => `${course.code} ${course.nameZh}`).join("；"),
-    关系: item.interchangeable ? "同级替代" : "高级替代",
+    替代方课程: item.substituteCourses.map((course) => {
+      const details = [
+        course.credits == null ? undefined : `${course.credits} 学分`,
+        course.hours == null ? undefined : `${course.hours} 学时`,
+      ].filter(Boolean).join("，");
+      return `${course.code} ${course.nameZh}${details ? `（${details}）` : ""}`;
+    }).join("；"),
+    被替代课程: item.originalCourses.map((course) => {
+      const details = [
+        course.credits == null ? undefined : `${course.credits} 学分`,
+        course.hours == null ? undefined : `${course.hours} 学时`,
+      ].filter(Boolean).join("，");
+      return `${course.code} ${course.nameZh}${details ? `（${details}）` : ""}`;
+    }).join("；"),
+    替代关系: item.interchangeable ? "同级可互换" : "单向高级替代",
+    方向: item.interchangeable ? "双方可互换" : "替代方 → 被替代方",
     门数: item.multiple ? "多门" : "单门",
   }));

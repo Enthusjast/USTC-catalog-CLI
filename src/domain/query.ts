@@ -18,6 +18,7 @@ export const RESOURCE_NAMES = [
   "restricted",
   "program-catalog",
   "program-document",
+  "program-history",
 ] as const;
 
 export type ResourceName = typeof RESOURCE_NAMES[number];
@@ -65,6 +66,8 @@ export type ExamFilter = {
   grade?: string;
   building?: string;
   date?: string;
+  dateFrom?: string;
+  dateTo?: string;
   span?: import("./models.js").ExamRange;
   className?: string;
   course?: string;
@@ -74,6 +77,7 @@ export type ExamFilter = {
 
 export type SubstituteFilter = {
   course?: string;
+  side?: import("./models.js").SubstituteCourseSide;
   mode?: "interchangeable" | "straight";
   multiple?: boolean;
 };

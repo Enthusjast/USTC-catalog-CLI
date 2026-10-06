@@ -14,12 +14,12 @@ export type DiagnosticCheck = {
 
 export const runDiagnostics = async (config: AppConfig, offline: boolean): Promise<DiagnosticCheck[]> => {
   const checks: DiagnosticCheck[] = [];
-  const [major, minor, patch] = process.versions.node.split(".").map(Number);
-  const supported = major > 20 || (major === 20 && (minor > 18 || (minor === 18 && patch >= 1)));
+  const [major] = process.versions.node.split(".").map(Number);
+  const supported = major >= 22;
   checks.push({
     name: "Node.js",
     status: supported ? "ok" : "error",
-    detail: `${process.versions.node}（要求 >=20.18.1）`,
+    detail: `${process.versions.node}（要求 >=22.0.0）`,
   });
 
   let memoryDatabase: CacheDatabase | undefined;

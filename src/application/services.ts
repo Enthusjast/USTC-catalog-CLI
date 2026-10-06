@@ -1,9 +1,13 @@
 import { DataAccessPolicy, type Loaded, type NetworkValue } from "./data-access-policy.js";
 import {
   filterExams,
+  examFilterOptions,
+  findExamConflicts,
   filterLessons,
   filterSubstitutes,
   sortExams,
+  type ExamFilters,
+  type ExamSortKey,
   sortLessons,
   mergeCourseGroups,
   normalizeCourse,
@@ -21,18 +25,31 @@ import {
   normalizeSubstitutes,
   normalizeTimetable,
 } from "../adapters/adapters.js";
-import type { ClassroomUsage, ClassroomWeekSummary, FreePeriod, Lesson, LessonFilterOption, Semester } from "../domain/models.js";
+import { compareProgramDetails } from "../adapters/program-comparison.js";
+import { normalizeProgramHistory, PROGRAM_HISTORY_PAGE_URL, resolveProgramHistoryPdfUrl } from "../adapters/program-history.js";
+import type { ClassroomUsage, ClassroomWeekSummary, FreePeriod, Lesson, LessonFilterOption, ProgramModule, Semester, SubstituteCourseSide } from "../domain/models.js";
 import type { AccessOptions } from "./data-access-policy.js";
 import type { AppConfig } from "../infrastructure/config/paths.js";
+import type { SubstituteFilter } from "../domain/query.js";
 import { CatalogApiClient, type ApiResult } from "../infrastructure/http/catalog-api-client.js";
 import { SnapshotRepository } from "../infrastructure/cache/snapshot-repository.js";
 import { STATIC_ROOMS } from "../data/rooms.js";
 import { COURSE_CATALOG_BY_CODE, COURSE_CATALOG_ENTRIES } from "../data/course-catalog.js";
 import { STATIC_PROGRAM_BY_ID, STATIC_PROGRAMS } from "../data/programs.js";
 import { normalizeProgramDocument } from "../adapters/program-document.js";
+import { downloadOfficialPdf } from "../infrastructure/http/official-pdf-downloader.js";
 import type {
+  DepartmentNode,
+  Exam,
+  ExamConflict,
+  ExamFilterOption,
+  ExamScheduleDay,
   ProgramCatalogEntry,
+  ProgramComparison,
+  ProgramDetail,
   ProgramDocument,
+  ProgramHistoryEntry,
+  ProgramSummary,
   ResultMeta,
 } from "../domain/models.js";
 import { CliError } from "../domain/errors.js";
@@ -174,6 +191,14 @@ const aggregateMeta = (
   };
 };
 
+const normalizeProgramHistoryPage = (html: string): ProgramHistoryEntry[] => {
+  const entries = normalizeProgramHistory(html);
+  if (entries.length === 0) {
+    throw new CliError("REMOTE_INVALID_DATA", "教务处历史方案页未包含可识别的归档条目。", "稍后重试，或直接访问官方历史方案页面。");
+  }
+  return entries;
+};
+
 const applyUsageChannels = (usage: ClassroomUsage): ClassroomUsage => {
   const layout = usage.layout ?? 1;
   const start = timeToMinutes(usage.start);
@@ -304,6 +329,89 @@ export function createServices(config: AppConfig) {
     },
   };
 
+  const loadProgramModule = async (id: number, options: ServiceOptions): Promise<Loaded<ProgramModule>> => {
+    const loaded = await loadApi("program-module", String(id), () => api.moduleInfo(id), options);
+    return { ...loaded, value: normalizeProgramModule(loaded.value) };
+  };
+
+  const expandProgramModules = async (
+    modules: ProgramModule[],
+    options: ServiceOptions,
+    loads: Map<number, Promise<Loaded<ProgramModule>>>,
+  ): Promise<{ modules: ProgramModule[]; loaded: Loaded<ProgramModule>[] }> => {
+    const loadedModules = new Map<number, Loaded<ProgramModule>>();
+    const expand = async (module: ProgramModule, ancestors: Set<number>): Promise<ProgramModule> => {
+      const publicId = module.publicModuleId;
+      if (publicId !== undefined && publicId !== null) {
+        if (ancestors.has(publicId)) {
+          throw new CliError("REMOTE_INVALID_DATA", `培养方案引用模块形成循环：${[...ancestors, publicId].join(" → ")}`);
+        }
+        let request = loads.get(publicId);
+        if (!request) {
+          request = loadProgramModule(publicId, options);
+          loads.set(publicId, request);
+        }
+        let loaded: Loaded<ProgramModule>;
+        try {
+          loaded = await request;
+        } catch (error) {
+          const cause = error instanceof Error ? error : new Error(String(error));
+          throw new CliError(
+            error instanceof CliError ? error.code : "REMOTE_INVALID_DATA",
+            `无法展开培养方案引用模块 ${publicId}：${cause.message}`,
+            error instanceof CliError ? error.hint : undefined,
+            error,
+          );
+        }
+        loadedModules.set(publicId, loaded);
+        const nextAncestors = new Set(ancestors);
+        nextAncestors.add(publicId);
+        const resolved = await expand(loaded.value, nextAncestors);
+        return { ...resolved, parentId: module.parentId ?? resolved.parentId };
+      }
+      return {
+        ...module,
+        children: await Promise.all(module.children.map((child) => expand(child, ancestors))),
+      };
+    };
+
+    return {
+      modules: await Promise.all(modules.map((module) => expand(module, new Set<number>()))),
+      loaded: [...loadedModules.values()],
+    };
+  };
+
+  const unresolvedProgramModuleIds = (modules: ProgramModule[]): number[] => modules.flatMap((module) => [
+    ...(module.publicModuleId == null ? [] : [module.publicModuleId]),
+    ...unresolvedProgramModuleIds(module.children),
+  ]);
+
+  const loadProgramDetail = async (
+    id: number,
+    summary: ProgramSummary,
+    options: ServiceOptions,
+    expandPublic: boolean,
+    moduleLoads: Map<number, Promise<Loaded<ProgramModule>>>,
+  ): Promise<Loaded<ProgramDetail>> => {
+    const loaded = await loadApi("program-detail", String(id), () => api.programInfo(id), options);
+    const detail = normalizeProgramDetail(loaded.value, summary);
+    if (!expandPublic) {
+      const unresolved = unresolvedProgramModuleIds(detail.modules);
+      return {
+        ...loaded,
+        value: detail,
+        ...(unresolved.length > 0
+          ? { meta: { ...loaded.meta, notice: `${unresolved.length} 个课程模块尚未展开；使用 --expand-public 查看其课程。` } }
+          : {}),
+      };
+    }
+    const expanded = await expandProgramModules(detail.modules, options, moduleLoads);
+    return {
+      value: { ...detail, modules: expanded.modules },
+      meta: aggregateMeta([{ meta: loaded.meta }, ...expanded.loaded], "program-detail", String(id)),
+    };
+  };
+
   const programService = {
     async catalog(keyword: string | undefined): Promise<Loaded<ProgramCatalogEntry[]>> {
       const terms = (keyword ?? "").trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -319,8 +427,8 @@ export function createServices(config: AppConfig) {
           scope: keyword ?? "all",
           source: "static",
           fetchedAt: new Date().toISOString(),
-          dataAsOf: "网页内置静态目录",
           stale: false,
+          notice: "官网内置的 2013 版静态培养方案目录，与 /plan 的当前 API 计划分开。",
         },
       };
     },
@@ -333,11 +441,11 @@ export function createServices(config: AppConfig) {
         code,
         () => api.programDocument(code),
         options,
-        "网页静态培养方案",
       );
       return {
         ...loaded,
         value: normalizeProgramDocument(loaded.value, code, entry.nameZh, `/data/program/cn/${code}.html`),
+        meta: { ...loaded.meta, notice: "这是官网静态培养方案正文；课程引用保持原文，不保证都能在当前课程目录中查到。" },
       };
     },
 
@@ -346,18 +454,82 @@ export function createServices(config: AppConfig) {
       return { ...loaded, value: normalizeProgramTree(loaded.value) };
     },
 
-    async detail(id: number, options: ServiceOptions) {
+    async detail(id: number, options: ServiceOptions, expandPublic = false) {
       const summaries = await programService.departments(options);
       const summary = summaries.value.find((item) => item.id === id);
       if (!summary) throw new CliError("REMOTE_NOT_FOUND", `未在培养方案树中找到计划 ${id}`);
-      const loaded = await loadApi("program-detail", String(id), () => api.programInfo(id), options,
-        `培养方案 ${summary.grade} ${summary.name}`);
-      return { ...loaded, value: normalizeProgramDetail(loaded.value, summary) };
+      return loadProgramDetail(id, summary, options, expandPublic, new Map());
     },
 
     async module(id: number, options: ServiceOptions) {
-      const loaded = await loadApi("program-module", String(id), () => api.moduleInfo(id), options);
-      return { ...loaded, value: normalizeProgramModule(loaded.value) };
+      return loadProgramModule(id, options);
+    },
+
+    async compare(beforeId: number, afterId: number, options: ServiceOptions): Promise<Loaded<ProgramComparison>> {
+      const tree = await programService.departments(options);
+      const beforeSummary = tree.value.find((item) => item.id === beforeId);
+      const afterSummary = tree.value.find((item) => item.id === afterId);
+      if (!beforeSummary) throw new CliError("REMOTE_NOT_FOUND", `未在培养方案树中找到计划 ${beforeId}`);
+      if (!afterSummary) throw new CliError("REMOTE_NOT_FOUND", `未在培养方案树中找到计划 ${afterId}`);
+      const moduleLoads = new Map<number, Promise<Loaded<ProgramModule>>>();
+      const beforePromise = loadProgramDetail(beforeId, beforeSummary, options, true, moduleLoads);
+      const afterPromise = beforeId === afterId
+        ? beforePromise
+        : loadProgramDetail(afterId, afterSummary, options, true, moduleLoads);
+      const [before, after] = await Promise.all([beforePromise, afterPromise]);
+      return {
+        value: compareProgramDetails(before.value, after.value),
+        meta: aggregateMeta(
+          [{ meta: tree.meta }, { meta: before.meta }, { meta: after.meta }],
+          "program-comparison",
+          `${beforeId}:${afterId}`,
+        ),
+      };
+    },
+
+    async history(keyword: string | undefined, options: ServiceOptions): Promise<Loaded<ProgramHistoryEntry[]>> {
+      const loaded = await loadApi("program-history", "all", async () => {
+        const response = await api.programHistory();
+        normalizeProgramHistoryPage(response.data);
+        return response;
+      }, options);
+      const entries = normalizeProgramHistoryPage(loaded.value);
+      const terms = (keyword ?? "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+      const value = terms.length === 0 ? entries : entries.filter((entry) => {
+        const searchable = `${entry.id} ${entry.title} ${entry.section} ${entry.version ?? ""}`.toLowerCase();
+        return terms.every((term) => searchable.includes(term));
+      });
+      return { ...loaded, value };
+    },
+
+    async downloadHistory(id: string, outputPath: string, options: ServiceOptions) {
+      if (options.offline) throw new CliError("ARGUMENT_ERROR", "下载历史 PDF 需要访问网络，不能与 --offline 同时使用。");
+      const entry = (await programService.history(undefined, options)).value.find((item) => item.id === id);
+      if (!entry) throw new CliError("REMOTE_NOT_FOUND", `未在历史方案索引中找到条目 ${id}`);
+      if (!entry.downloadable) {
+        throw new CliError("ARGUMENT_ERROR", `历史条目“${entry.title}”不是可下载 PDF。`, "可使用 program history list 查看其网页链接。");
+      }
+      const attachment = /\/attachment\//i.test(new URL(entry.href).pathname);
+      let pdfUrl = entry.href;
+      if (attachment) {
+        const attachmentPage = (await api.getText(entry.href)).data;
+        pdfUrl = resolveProgramHistoryPdfUrl(attachmentPage, entry.href);
+      }
+      const downloaded = await downloadOfficialPdf(pdfUrl, outputPath, {
+        timeoutMs: config.timeoutMs,
+        userAgent: config.userAgent,
+        referer: attachment ? entry.href : PROGRAM_HISTORY_PAGE_URL,
+      });
+      return {
+        value: { entry, ...downloaded },
+        meta: {
+          resource: "program-history-download",
+          scope: id,
+          source: "network" as const,
+          fetchedAt: new Date().toISOString(),
+          stale: false,
+        },
+      };
     },
   };
 
@@ -734,25 +906,126 @@ export function createServices(config: AppConfig) {
     },
   };
 
+  const loadExamDataset = async (semesterId: number, options: ServiceOptions): Promise<Loaded<Exam[]>> => {
+    const semesterLabel = await commonService.semesterLabel(semesterId, options);
+    const [planned, general] = await Promise.all([
+      loadApi("exams", String(semesterId), () => api.exams(semesterId), options, semesterLabel),
+      loadApi("general-exams", String(semesterId), () => api.generalExams(semesterId), options, semesterLabel),
+    ]);
+    const plannedItems = planned.value as unknown[];
+    const generalItems = general.value as unknown[];
+    const mappings = new Map<string, Set<string>>();
+    const remember = (name: string | undefined, code: string | undefined): void => {
+      const key = name?.trim();
+      if (!key || !code) return;
+      mappings.set(key, new Set([...(mappings.get(key) ?? []), code]));
+    };
+    for (const exam of normalizeExams(plannedItems, [])) remember(exam.departmentName, exam.departmentCode);
+
+    const unmappedNames = [...new Set(normalizeExams([], generalItems)
+      .map((exam) => exam.departmentName?.trim())
+      .filter((name): name is string => Boolean(name && (mappings.get(name)?.size ?? 0) !== 1)))];
+    if (unmappedNames.length > 0) {
+      try {
+        const tree = (await commonService.departmentTree(options)).value;
+        const visit = (nodes: DepartmentNode[]): void => {
+          for (const node of nodes) {
+            remember(node.nameZh, node.code);
+            visit(node.children);
+          }
+        };
+        visit(tree);
+      } catch {
+        options.onDiagnostic?.("exam department mapping unavailable; keeping general exam department names");
+      }
+    }
+    const departmentCodesByName = new Map(
+      [...mappings.entries()].flatMap(([name, codes]) => codes.size === 1 ? [[name, [...codes][0]!] as const] : []),
+    );
+    const meta = aggregateMeta([planned, general], "exams", String(semesterId));
+    const exams = normalizeExams(plannedItems, generalItems, departmentCodesByName);
+    return {
+      value: exams,
+      meta: {
+        ...meta,
+        notice: "考试查询数据由网页次日更新，非实时；实时安排请以综合教务系统为准。",
+        unmappedDepartmentCount: exams.filter((exam) => exam.recordKind === "general" && !exam.departmentCode).length,
+      },
+    };
+  };
+
   const examService = {
     async list(
-      filters: { semesterId?: number; sort?: "course" | "department" | "teacher" | "location" | "date" | "time" | "class"; descending?: boolean } & Parameters<typeof filterExams>[1],
+      filters: ExamFilters & { semesterId?: number; sort?: ExamSortKey; descending?: boolean },
       options: ServiceOptions,
     ) {
-      const semester = filters.semesterId ?? (await commonService.defaultSemester(options)).value.id;
-      const semesterLabel = await commonService.semesterLabel(semester, options);
-      const [planned, general] = await Promise.all([
-        loadApi("exams", String(semester), () => api.exams(semester), options, semesterLabel),
-        loadApi("general-exams", String(semester), () => api.generalExams(semester), options, semesterLabel),
-      ]);
-      const filtered = filterExams(
-        normalizeExams(planned.value as unknown[], general.value as unknown[]),
-        filters,
-      );
-      const value = sortExams(filtered, filters.sort ?? "date", filters.descending);
+      const semesterId = filters.semesterId ?? (await commonService.defaultSemester(options)).value.id;
+      const loaded = await loadExamDataset(semesterId, options);
+      const filtered = filterExams(loaded.value, filters);
+      return { ...loaded, value: sortExams(filtered, filters.sort ?? "date", filters.descending) };
+    },
+
+    async options(
+      filters: ExamFilters & { semesterId?: number },
+      options: ServiceOptions,
+    ): Promise<Loaded<ExamFilterOption[]>> {
+      const semesterId = filters.semesterId ?? (await commonService.defaultSemester(options)).value.id;
+      const loaded = await loadExamDataset(semesterId, options);
       return {
+        ...loaded,
+        value: examFilterOptions(loaded.value, filters),
+        meta: { ...loaded.meta, resource: "exam-options", scope: String(semesterId) },
+      };
+    },
+
+    async schedule(
+      semesterId: number,
+      fromDate: string,
+      toDate: string,
+      filters: ExamFilters,
+      options: ServiceOptions,
+    ): Promise<Loaded<ExamScheduleDay[]>> {
+      const loaded = await loadExamDataset(semesterId, options);
+      const exams = sortExams(filterExams(loaded.value, { ...filters, dateFrom: fromDate, dateTo: toDate }), "date");
+      const dates: string[] = [];
+      const [year, month, day] = fromDate.split("-").map(Number);
+      const [endYear, endMonth, endDay] = toDate.split("-").map(Number);
+      const end = Date.UTC(endYear, endMonth - 1, endDay);
+      for (let cursor = Date.UTC(year, month - 1, day); cursor <= end; cursor += 86400000) {
+        dates.push(new Date(cursor).toISOString().slice(0, 10));
+      }
+      const value: ExamScheduleDay[] = dates.map((date) => ({
+        date,
+        exams: exams.filter((exam) => exam.date === date),
+      }));
+      return {
+        ...loaded,
         value,
-        meta: aggregateMeta([planned, general], "exams", String(semester)),
+        meta: {
+          ...loaded.meta,
+          resource: "exam-schedule",
+          scope: `${semesterId}:${fromDate}:${toDate}`,
+          dataAsOf: `${fromDate} 至 ${toDate}`,
+        },
+      };
+    },
+
+    async conflicts(
+      filters: ExamFilters & { semesterId?: number },
+      options: ServiceOptions,
+    ): Promise<Loaded<ExamConflict[]>> {
+      const semesterId = filters.semesterId ?? (await commonService.defaultSemester(options)).value.id;
+      const loaded = await loadExamDataset(semesterId, options);
+      const report = findExamConflicts(filterExams(loaded.value, filters));
+      return {
+        ...loaded,
+        value: report.conflicts,
+        meta: {
+          ...loaded.meta,
+          resource: "exam-conflicts",
+          scope: String(semesterId),
+          uncheckableExamCount: report.uncheckableCount,
+        },
       };
     },
 
@@ -764,11 +1037,31 @@ export function createServices(config: AppConfig) {
     },
   };
 
+  const querySubstitutes = async (
+    filters: SubstituteFilter,
+    options: ServiceOptions,
+  ) => {
+    if (filters.course !== undefined && !filters.course.trim()) {
+      throw new CliError("ARGUMENT_ERROR", "课程条件不能为空。");
+    }
+    if (filters.side && !filters.course) {
+      throw new CliError("ARGUMENT_ERROR", "按替代方或被替代方筛选时必须同时提供课程条件。");
+    }
+    const loaded = await loadApi("substitutes", "all", () => api.substitutes(), options);
+    const relations = normalizeSubstitutes(loaded.value as unknown[]);
+    return {
+      ...loaded,
+      value: filterSubstitutes(relations, filters.course, filters.mode, filters.multiple, filters.side),
+      meta: { ...loaded.meta, notice: "官网替代课程数据非实时、次日更新；关系只表示关系表中的直接记录，不代表教务审批结论。" },
+    };
+  };
+
   const substituteService = {
-    async list(filters: { course?: string; mode?: "interchangeable" | "straight"; multiple?: boolean }, options: ServiceOptions) {
-      const loaded = await loadApi("substitutes", "all", () => api.substitutes(), options);
-      const relations = normalizeSubstitutes(loaded.value as unknown[]);
-      return { ...loaded, value: filterSubstitutes(relations, filters.course, filters.mode, filters.multiple) };
+    list(filters: SubstituteFilter, options: ServiceOptions) {
+      return querySubstitutes(filters, options);
+    },
+    explain(course: string, side: SubstituteCourseSide | undefined, options: ServiceOptions) {
+      return querySubstitutes({ course, side }, options);
     },
   };
 

@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { parseClock, parseFreePeriod, validDate } from "../src/cli.js";
 
@@ -53,6 +56,19 @@ describe("CLI argument validation", () => {
     await expect(program.parseAsync(["lesson", "list", "--semester", "461", "--week", "5-3"], { from: "user" }))
       .rejects.toMatchObject({ code: "ARGUMENT_ERROR" });
     expect(request).not.toHaveBeenCalled();
+    services.repository.close();
+  });
+
+  it("requires exactly one date selector for exam schedule", async () => {
+    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "catalog-exam-schedule-validation-"));
+    const { buildCli } = await import("../src/cli.js");
+    const { program, services } = buildCli({ cacheDir });
+    program.exitOverride();
+    await expect(program.parseAsync(["exam", "schedule"], { from: "user" }))
+      .rejects.toMatchObject({ code: "ARGUMENT_ERROR" });
+    await expect(program.parseAsync([
+      "exam", "schedule", "--date", "2026-11-04", "--week-of", "2026-11-04",
+    ], { from: "user" })).rejects.toMatchObject({ code: "ARGUMENT_ERROR" });
     services.repository.close();
   });
 });

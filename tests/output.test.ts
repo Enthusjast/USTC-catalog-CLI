@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { emitResult } from "../src/presentation/output.js";
-import { normalizeLesson, normalizeTimetable } from "../src/adapters/adapters.js";
-import { classroomRows, lessonExportRows, lessonRows } from "../src/presentation/rows.js";
+import { normalizeExams, normalizeLesson, normalizeTimetable } from "../src/adapters/adapters.js";
+import { classroomRows, examRows, lessonExportRows, lessonRows, substituteRows } from "../src/presentation/rows.js";
 
 describe("output contracts", () => {
   it("unions columns for mixed table rows in CSV", () => {
@@ -106,6 +106,41 @@ describe("output contracts", () => {
     });
   });
 
+  it("renders substitute direction and course credits and hours", () => {
+    const rows = substituteRows([{
+      id: 1,
+      substituteCourses: [{ id: 1, code: "A", nameZh: "替代课程", credits: 3, hours: 60 }],
+      originalCourses: [{ id: 2, code: "B", nameZh: "原课程", credits: 4, hours: 80 }],
+      interchangeable: false,
+      multiple: false,
+      searchText: "",
+    }]);
+
+    expect(rows[0]).toEqual({
+      替代方课程: "A 替代课程（3 学分，60 学时）",
+      被替代课程: "B 原课程（4 学分，80 学时）",
+      替代关系: "单向高级替代",
+      方向: "替代方 → 被替代方",
+      门数: "单门",
+    });
+  });
+
+  it("includes exam credits and course type in human-readable rows", () => {
+    const exams = normalizeExams([{
+      id: 1,
+      examType: 2,
+      examDate: "2026-11-04",
+      examRooms: [{ room: "5401", count: 20 }],
+      examMode: "笔试",
+      lesson: {
+        code: "MATH1001.01",
+        course: { cn: "数学分析", credits: 6 },
+        courseType: { cn: "理论课" },
+      },
+    }], []);
+    expect(examRows(exams)[0]).toMatchObject({ 学分: 6, 课程类型: "理论课", 考试类型: "期末考试" });
+  });
+
   it("rejects offset for object-shaped results", () => {
     try {
       emitResult(
@@ -201,6 +236,27 @@ describe("output contracts", () => {
     }, { format: "json", limit: undefined, offset: 0, all: false, noColor: true, quiet: false });
     expect(JSON.parse(String(stdout.mock.calls[0]?.[0])).meta.unlocatedUsageCount).toBe(2);
     expect(stderr.mock.calls.flat().join("")).toContain("2 条使用记录无法关联到网页教室目录");
+    stdout.mockRestore();
+    stderr.mockRestore();
+  });
+
+  it("prints the exam freshness notice to stderr and preserves it in JSON meta", () => {
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const notice = "考试查询数据由网页次日更新，非实时；实时安排请以综合教务系统为准。";
+    emitResult({
+      meta: { resource: "exams", scope: "461", source: "network", fetchedAt: "now", stale: false, notice },
+      data: [],
+    }, { format: "table", limit: undefined, offset: 0, all: true, noColor: true, quiet: false });
+    expect(stderr.mock.calls.flat().join("")).toContain(notice);
+    stdout.mockClear();
+    stderr.mockClear();
+    emitResult({
+      meta: { resource: "exams", scope: "461", source: "network", fetchedAt: "now", stale: false, notice },
+      data: [],
+    }, { format: "json", limit: undefined, offset: 0, all: true, noColor: true, quiet: false });
+    expect(JSON.parse(String(stdout.mock.calls.at(-1)?.[0])).meta.notice).toBe(notice);
+    expect(stderr.mock.calls).toHaveLength(0);
     stdout.mockRestore();
     stderr.mockRestore();
   });

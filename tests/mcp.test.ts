@@ -72,7 +72,14 @@ describe("USTC catalog MCP tools", () => {
     expect(result.tools.every((tool) => tool.annotations?.readOnlyHint === true)).toBe(true);
     expect(result.tools.find((tool) => tool.name === "ustc_course_search")?.inputSchema.properties)
       .toHaveProperty("keyword");
+    expect(result.tools.find((tool) => tool.name === "ustc_program_show")?.inputSchema.properties)
+      .toHaveProperty("expandPublic");
+    expect(result.tools.find((tool) => tool.name === "ustc_program_history_list")?.inputSchema.properties)
+      .toHaveProperty("keyword");
+    expect(result.tools.find((tool) => tool.name === "ustc_program_compare")?.inputSchema.properties)
+      .toHaveProperty("beforeId");
     expect(result.tools.some((tool) => tool.name.includes("cache_clear"))).toBe(false);
+    expect(result.tools.some((tool) => tool.name.includes("history_download"))).toBe(false);
   });
 
   it("maps typed arguments to catalog CLI arguments and returns structured JSON", async () => {
@@ -139,14 +146,24 @@ describe("USTC catalog MCP tools", () => {
       },
       { name: "ustc_program_history", arguments: {}, expected: ["program", "history"] },
       {
+        name: "ustc_program_history_list",
+        arguments: { keyword: "2024 数学", limit: 10 },
+        expected: ["--limit", "10", "program", "history", "list", "--keyword", "2024 数学"],
+      },
+      {
         name: "ustc_program_list",
-        arguments: { department: "001", major: "20", grade: "2026", type: "主修" },
-        expected: ["program", "list", "--department", "001", "--major", "20", "--grade", "2026", "--type", "主修"],
+        arguments: { department: "001", major: "20", grade: "2026", type: "主修", name: "数学 分析" },
+        expected: ["program", "list", "--department", "001", "--major", "20", "--grade", "2026", "--type", "主修", "--name", "数学 分析"],
       },
       {
         name: "ustc_program_show",
-        arguments: { id: 3430, term: "1秋" },
-        expected: ["program", "show", "--term", "1秋", "--", "3430"],
+        arguments: { id: 3430, term: "1秋", expandPublic: true },
+        expected: ["program", "show", "--term", "1秋", "--expand-public", "--", "3430"],
+      },
+      {
+        name: "ustc_program_compare",
+        arguments: { beforeId: 3430, afterId: 3431 },
+        expected: ["program", "compare", "--", "3430", "3431"],
       },
       {
         name: "ustc_program_module",
@@ -258,14 +275,34 @@ describe("USTC catalog MCP tools", () => {
         ],
       },
       {
+        name: "ustc_exam_options",
+        arguments: { semester: 441, type: "补考", department: "001", span: "evening" },
+        expected: ["exam", "options", "--semester", "441", "--type", "补考", "--department", "001", "--span", "evening"],
+      },
+      {
+        name: "ustc_exam_schedule",
+        arguments: { semester: 461, weekOf: "2026-11-04", building: "0" },
+        expected: ["exam", "schedule", "--semester", "461", "--week-of", "2026-11-04", "--building", "0"],
+      },
+      {
+        name: "ustc_exam_conflicts",
+        arguments: { semester: 461, date: "2026-11-04", department: "数学科学学院" },
+        expected: ["exam", "conflicts", "--semester", "461", "--department", "数学科学学院", "--date", "2026-11-04"],
+      },
+      {
         name: "ustc_exam_show",
         arguments: { id: 13138, semester: "441" },
         expected: ["exam", "show", "--semester", "441", "--", "13138"],
       },
       {
         name: "ustc_substitute_list",
-        arguments: { course: "数学分析", mode: "interchangeable", multiple: true },
-        expected: ["substitute", "list", "--course", "数学分析", "--mode", "interchangeable", "--multiple"],
+        arguments: { course: "数学分析", mode: "interchangeable", multiple: true, side: "替代方" },
+        expected: ["substitute", "list", "--course", "数学分析", "--mode", "interchangeable", "--multiple", "--side", "替代方"],
+      },
+      {
+        name: "ustc_substitute_explain",
+        arguments: { course: "MATH1001", side: "被替代方" },
+        expected: ["substitute", "explain", "--side", "被替代方", "--", "MATH1001"],
       },
       { name: "ustc_substitute_summary", arguments: {}, expected: ["substitute", "summary"] },
       { name: "ustc_cache_status", arguments: {}, expected: ["cache", "status"] },
@@ -303,6 +340,18 @@ describe("USTC catalog MCP tools", () => {
     const result = await session.client.callTool({
       name: "ustc_substitute_list",
       arguments: { multiple: true, single: true },
+    });
+
+    expect(result.isError).toBe(true);
+    expect(executor.calls).toHaveLength(0);
+  });
+
+  it("requires a course when a substitute side is selected", async () => {
+    const executor = new FakeExecutor();
+    const session = await connect(executor);
+    const result = await session.client.callTool({
+      name: "ustc_substitute_list",
+      arguments: { side: "替代方" },
     });
 
     expect(result.isError).toBe(true);
